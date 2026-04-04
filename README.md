@@ -58,13 +58,13 @@ async fn main() -> anyhow::Result<()> {
     let mut bot = IrcMessenger::new("bot".into(), "irc.libera.chat".into(), 6697, "mybot".into())
         .with_tls(true)  // Enable TLS encryption
         .with_channels(vec!["#rust".into()]);
-    
+
     bot.initialize().await?;
     bot.send_message("#rust", "Secure message via IRC+TLS!").await?;
-    
+
     let msgs = bot.receive_messages().await?;
     for m in msgs { println!("{}: {}", m.sender, m.content); }
-    
+
     bot.disconnect().await?;
     Ok(())
 }

@@ -153,7 +153,7 @@ async fn load_tls_config() -> Result<rustls::server::ServerConfig> {
     // Read private key
     let key_bytes = fs::read(key_path)?;
     let mut key_reader = std::io::Cursor::new(key_bytes);
-    
+
     // Try to read PKCS8 keys first
     let key = rustls_pemfile::pkcs8_private_keys(&mut key_reader)
         .next()

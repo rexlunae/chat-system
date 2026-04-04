@@ -1,5 +1,5 @@
 //! IRC encrypted client example — connect to irc.libera.chat via TLS.
-//! 
+//!
 //! This example demonstrates how to use the IRC messenger with TLS/SSL encryption
 //! for secure communication. The connection uses port 6697, which is the standard
 //! IRC+TLS port.
@@ -16,7 +16,7 @@ use chat_system::Messenger;
 async fn main() -> anyhow::Result<()> {
     // Read IRC nick from environment or use default
     let nick = std::env::var("IRC_NICK").unwrap_or_else(|_| "chat-system-secure".into());
-    
+
     // Create IRC messenger with TLS encryption enabled
     // Port 6697 is the standard IRC+TLS port (RFC 7194)
     let mut client = IrcMessenger::new(
@@ -54,7 +54,7 @@ async fn main() -> anyhow::Result<()> {
     println!();
     let mut count = 0;
     let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(30);
-    
+
     while count < 5 && tokio::time::Instant::now() < deadline {
         let msgs = client.receive_messages().await?;
         for msg in msgs {
@@ -75,6 +75,6 @@ async fn main() -> anyhow::Result<()> {
     println!("✓ Disconnected from IRC");
     println!();
     println!("All communication was encrypted via TLS!");
-    
+
     Ok(())
 }
