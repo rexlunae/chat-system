@@ -2,7 +2,7 @@
 name = "chat-system"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.86"
 description = "A multi-protocol async chat crate — single interface for IRC, Matrix, Discord, Telegram, Slack, Signal, WhatsApp, and more"
 homepage = "https://github.com/rexlunae/chat-system"
 repository = "https://github.com/rexlunae/chat-system"
