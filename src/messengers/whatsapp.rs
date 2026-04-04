@@ -28,6 +28,7 @@ pub struct WhatsAppMessenger {
     /// Path to the SQLite file used for session persistence.
     db_path: String,
     client: Option<Arc<Client>>,
+    task_handle: Option<tokio::task::JoinHandle<()>>,
     connected: bool,
     messages: Arc<Mutex<Vec<Message>>>,
 }
@@ -42,6 +43,7 @@ impl WhatsAppMessenger {
             name,
             db_path,
             client: None,
+            task_handle: None,
             connected: false,
             messages: Arc::new(Mutex::new(Vec::new())),
         }
@@ -112,9 +114,8 @@ impl Messenger for WhatsAppMessenger {
             .await?;
 
         self.client = Some(bot.client());
-        // Spawn the background networking task; the returned JoinHandle is intentionally
-        // dropped — Tokio will keep the task alive independently.
-        let _handle = bot.run().await?;
+        let handle = bot.run().await?;
+        self.task_handle = Some(handle);
         self.connected = true;
         Ok(())
     }
@@ -165,6 +166,9 @@ impl Messenger for WhatsAppMessenger {
     async fn disconnect(&mut self) -> Result<()> {
         self.connected = false;
         self.client = None;
+        if let Some(handle) = self.task_handle.take() {
+            handle.abort();
+        }
         Ok(())
     }
 }
