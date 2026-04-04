@@ -1,0 +1,58 @@
+[package]
+name = "chat-system"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "A multi-protocol async chat crate — single interface for IRC, Matrix, Discord, Telegram, Slack, Signal, WhatsApp, and more"
+homepage = "https://github.com/rexlunae/chat-system"
+repository = "https://github.com/rexlunae/chat-system"
+readme = "README.md"
+license = "MIT"
+keywords = ["chat", "messaging", "irc", "matrix", "discord"]
+categories = ["network-programming", "asynchronous"]
+
+[features]
+default = []
+matrix = ["dep:matrix-sdk"]
+whatsapp = ["dep:wa-rs", "dep:wa-rs-sqlite-storage", "dep:wa-rs-tokio-transport", "dep:wa-rs-ureq-http"]
+signal-cli = []
+full = ["matrix", "whatsapp", "signal-cli"]
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+anyhow = "1.0"
+futures = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+pulldown-cmark = { version = "0.12", default-features = false }
+
+matrix-sdk = { version = "0.7", optional = true, default-features = false, features = ["rustls-tls"] }
+
+wa-rs = { version = "0.2", optional = true }
+wa-rs-sqlite-storage = { version = "0.2", optional = true }
+wa-rs-tokio-transport = { version = "0.2", optional = true }
+wa-rs-ureq-http = { version = "0.2", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }
+
+[[example]]
+name = "irc_client"
+path = "examples/irc_client.rs"
+
+[[example]]
+name = "irc_echo_server"
+path = "examples/irc_echo_server.rs"
+
+[[example]]
+name = "discord_bot"
+path = "examples/discord_bot.rs"
+
+[[example]]
+name = "matrix_client"
+path = "examples/matrix_client.rs"
+required-features = ["matrix"]
