@@ -14,7 +14,7 @@ categories = ["network-programming", "asynchronous"]
 [features]
 default = []
 matrix = ["dep:matrix-sdk"]
-whatsapp = ["dep:wa-rs", "dep:wa-rs-sqlite-storage", "dep:wa-rs-tokio-transport", "dep:wa-rs-ureq-http"]
+whatsapp = ["dep:wa-rs", "dep:wa-rs-core", "dep:wa-rs-sqlite-storage", "dep:wa-rs-tokio-transport", "dep:wa-rs-ureq-http"]
 signal-cli = []
 full = ["matrix", "whatsapp", "signal-cli"]
 
@@ -33,6 +33,7 @@ pulldown-cmark = { version = "0.12", default-features = false }
 matrix-sdk = { version = "0.7", optional = true, default-features = false, features = ["rustls-tls"] }
 
 wa-rs = { version = "0.2", optional = true }
+wa-rs-core = { version = "0.2", optional = true }
 wa-rs-sqlite-storage = { version = "0.2", optional = true }
 wa-rs-tokio-transport = { version = "0.2", optional = true }
 wa-rs-ureq-http = { version = "0.2", optional = true }
