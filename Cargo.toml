@@ -40,6 +40,9 @@ wa-rs-ureq-http = { version = "0.2", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }
+tokio-rustls = "0.25"
+rustls-pemfile = "2.0"
+rustls = "0.22"
 
 [[example]]
 name = "irc_client"
@@ -48,6 +51,14 @@ path = "examples/irc_client.rs"
 [[example]]
 name = "irc_echo_server"
 path = "examples/irc_echo_server.rs"
+
+[[example]]
+name = "irc_encrypted_client"
+path = "examples/irc_encrypted_client.rs"
+
+[[example]]
+name = "irc_encrypted_echo_server"
+path = "examples/irc_encrypted_echo_server.rs"
 
 [[example]]
 name = "discord_bot"

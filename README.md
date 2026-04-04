@@ -2,8 +2,6 @@
 
 A multi-protocol async chat crate for Rust. Provides a **single unified `Messenger` trait** for IRC, Matrix, Discord, Telegram, Slack, Signal, WhatsApp, Microsoft Teams, Google Chat, iMessage, Webhook, and Console — with full rich-text support for every platform's native format.
 
-Code adapted from [RustyClaw](https://crates.io/crates/rustyclaw) and [Moltis](https://github.com/moltis-org/moltis) (both MIT).
-
 ---
 
 ## Features
@@ -28,6 +26,8 @@ tokio = { version = "1", features = ["full"] }
 
 ### IRC
 
+#### Standard Connection (Unencrypted)
+
 ```rust
 use chat_system::messengers::IrcMessenger;
 use chat_system::Messenger;
@@ -41,6 +41,30 @@ async fn main() -> anyhow::Result<()> {
     bot.send_message("#rust", "Hello from chat-system!").await?;
     let msgs = bot.receive_messages().await?;
     for m in msgs { println!("{}: {}", m.sender, m.content); }
+    bot.disconnect().await?;
+    Ok(())
+}
+```
+
+#### Encrypted Connection (TLS/SSL)
+
+```rust
+use chat_system::messengers::IrcMessenger;
+use chat_system::Messenger;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Encrypted IRC with TLS on port 6697 (standard IRC+TLS port)
+    let mut bot = IrcMessenger::new("bot".into(), "irc.libera.chat".into(), 6697, "mybot".into())
+        .with_tls(true)  // Enable TLS encryption
+        .with_channels(vec!["#rust".into()]);
+    
+    bot.initialize().await?;
+    bot.send_message("#rust", "Secure message via IRC+TLS!").await?;
+    
+    let msgs = bot.receive_messages().await?;
+    for m in msgs { println!("{}: {}", m.sender, m.content); }
+    
     bot.disconnect().await?;
     Ok(())
 }
@@ -125,11 +149,54 @@ let chunks = chunk_markdown_html(&very_long_markdown, 4096);
 
 ---
 
+## IRC Encryption (TLS/SSL)
+
+### Overview
+
+The IRC messenger supports both unencrypted and encrypted (TLS/SSL) connections for secure communication:
+
+- **Unencrypted**: Standard IRC protocol on port `6667`
+- **Encrypted (TLS)**: IRC over TLS on port `6697` (RFC 7194 standard)
+
+### Configuration
+
+```rust
+use chat_system::messengers::IrcMessenger;
+
+// Unencrypted
+let mut messenger = IrcMessenger::new("name".into(), "irc.server.com".into(), 6667, "nick".into())
+    .with_tls(false);
+
+// Encrypted with TLS
+let mut messenger = IrcMessenger::new("name".into(), "irc.server.com".into(), 6697, "nick".into())
+    .with_tls(true);
+```
+
+### Security Features
+
+- **TLS 1.2+**: Modern encryption standards
+- **Certificate Verification**: Validates server certificates to prevent MITM attacks
+- **Rustls**: Uses pure-Rust TLS implementation for safety and portability
+
+### Server Support
+
+Most public IRC networks support encrypted connections:
+
+| Network | Host | Port | TLS |
+| --- | --- | --- | --- |
+| Libera.Chat | `irc.libera.chat` | 6667, 6697 | ✓ 6697 |
+| Freenode | `irc.freenode.net` | 6667, 6697 | ✓ 6697 |
+| EFnet | `irc.mcs.anl.gov` | 6667 | ✗ |
+| Undernet | `irc.undernet.org` | 6667, 6697 | ✓ 6697 |
+
+---
+
 ## Examples
 
 ```sh
 cargo run --example irc_client
 cargo run --example irc_echo_server
+cargo run --example irc_encrypted_client  # TLS/SSL encrypted IRC
 cargo run --example discord_bot
 cargo run --example matrix_client --features matrix
 ```
