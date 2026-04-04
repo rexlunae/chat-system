@@ -193,8 +193,7 @@ async fn google_chat_send_message_server_error_returns_err() {
 
 #[tokio::test]
 async fn google_chat_receive_returns_empty() {
-    let mut m =
-        GoogleChatMessenger::new("gchat".to_string(), "http://example.com".to_string());
+    let mut m = GoogleChatMessenger::new("gchat".to_string(), "http://example.com".to_string());
     m.initialize().await.unwrap();
     let msgs = m.receive_messages().await.unwrap();
     assert!(msgs.is_empty());

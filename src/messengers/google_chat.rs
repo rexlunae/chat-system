@@ -42,10 +42,18 @@ impl Messenger for GoogleChatMessenger {
     async fn send_message(&self, _space: &str, content: &str) -> Result<String> {
         let body = json!({ "text": content });
 
-        let resp = self.client.post(&self.webhook_url).json(&body).send().await?;
+        let resp = self
+            .client
+            .post(&self.webhook_url)
+            .json(&body)
+            .send()
+            .await?;
 
         if resp.status().is_success() {
-            Ok(format!("googlechat:{}", chrono::Utc::now().timestamp_millis()))
+            Ok(format!(
+                "googlechat:{}",
+                chrono::Utc::now().timestamp_millis()
+            ))
         } else {
             let status = resp.status();
             let text = resp.text().await.unwrap_or_default();

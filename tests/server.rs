@@ -127,10 +127,7 @@ async fn server_run_handler_can_return_reply() {
 async fn server_run_records_processed_message_internally() {
     let mut server = MockChatServer::new("127.0.0.1:0");
 
-    server
-        .run(|_msg| async move { Ok(None) })
-        .await
-        .unwrap();
+    server.run(|_msg| async move { Ok(None) }).await.unwrap();
 
     let msgs = server.processed_messages();
     assert_eq!(msgs.len(), 1);
@@ -142,9 +139,7 @@ async fn server_run_handler_error_propagates() {
     let mut server = MockChatServer::new("127.0.0.1:0");
 
     let result = server
-        .run(|_msg| async move {
-            Err(anyhow::anyhow!("handler error"))
-        })
+        .run(|_msg| async move { Err(anyhow::anyhow!("handler error")) })
         .await;
 
     assert!(result.is_err());
@@ -155,10 +150,7 @@ async fn server_run_handler_error_propagates() {
 async fn server_run_followed_by_shutdown() {
     let mut server = MockChatServer::new("127.0.0.1:0");
 
-    server
-        .run(|_msg| async move { Ok(None) })
-        .await
-        .unwrap();
+    server.run(|_msg| async move { Ok(None) }).await.unwrap();
 
     server.shutdown().await.unwrap();
 }

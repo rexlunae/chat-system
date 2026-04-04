@@ -39,11 +39,7 @@ impl Messenger for TelegramMessenger {
     }
 
     async fn initialize(&mut self) -> Result<()> {
-        let resp = self
-            .client
-            .get(self.api_url("getMe"))
-            .send()
-            .await?;
+        let resp = self.client.get(self.api_url("getMe")).send().await?;
 
         let data: Value = resp.json().await?;
         if data["ok"].as_bool().unwrap_or(false) {

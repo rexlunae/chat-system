@@ -52,7 +52,10 @@ impl Messenger for DiscordMessenger {
     }
 
     async fn send_message(&self, channel_id: &str, content: &str) -> Result<String> {
-        let url = format!("https://discord.com/api/v10/channels/{}/messages", channel_id);
+        let url = format!(
+            "https://discord.com/api/v10/channels/{}/messages",
+            channel_id
+        );
         let body = json!({ "content": content });
 
         let resp = self

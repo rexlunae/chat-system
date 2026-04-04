@@ -46,7 +46,12 @@ impl Messenger for TeamsMessenger {
             "text": content,
         });
 
-        let resp = self.client.post(&self.webhook_url).json(&body).send().await?;
+        let resp = self
+            .client
+            .post(&self.webhook_url)
+            .json(&body)
+            .send()
+            .await?;
 
         if resp.status().is_success() {
             Ok(format!("teams:{}", chrono::Utc::now().timestamp_millis()))

@@ -29,7 +29,9 @@ pub struct MessengerManager {
 
 impl MessengerManager {
     pub fn new() -> Self {
-        Self { messengers: Vec::new() }
+        Self {
+            messengers: Vec::new(),
+        }
     }
 
     pub fn add(&mut self, messenger: Box<dyn Messenger>) {
@@ -74,10 +76,15 @@ impl MessengerManager {
     }
 
     pub fn get(&self, name: &str) -> Option<&dyn Messenger> {
-        self.messengers.iter().find(|m| m.name() == name).map(|b| b.as_ref())
+        self.messengers
+            .iter()
+            .find(|m| m.name() == name)
+            .map(|b| b.as_ref())
     }
 }
 
 impl Default for MessengerManager {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
