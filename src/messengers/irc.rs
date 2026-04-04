@@ -76,7 +76,8 @@ impl Messenger for IrcMessenger {
 
         // Register with the server
         self.send_raw(&format!("NICK {}", self.nick)).await?;
-        self.send_raw(&format!("USER {} 0 * :{}", self.nick, self.nick)).await?;
+        self.send_raw(&format!("USER {} 0 * :{}", self.nick, self.nick))
+            .await?;
 
         // Wait for welcome (001) or error
         if let Some(reader) = &self.reader {
@@ -122,7 +123,8 @@ impl Messenger for IrcMessenger {
     }
 
     async fn send_message(&self, recipient: &str, content: &str) -> Result<String> {
-        self.send_raw(&format!("PRIVMSG {} :{}", recipient, content)).await?;
+        self.send_raw(&format!("PRIVMSG {} :{}", recipient, content))
+            .await?;
         Ok(format!("irc:{}:{}", recipient, content))
     }
 

@@ -45,10 +45,7 @@ async fn handle_irc_connection(stream: tokio::net::TcpStream) {
             if parts.len() == 3 {
                 let target = parts[1];
                 let msg = parts[2].trim_start_matches(':');
-                let reply = format!(
-                    ":echo!echo@localhost PRIVMSG {} :echo: {}\r\n",
-                    target, msg
-                );
+                let reply = format!(":echo!echo@localhost PRIVMSG {} :echo: {}\r\n", target, msg);
                 let _ = writer.write_all(reply.as_bytes()).await;
             }
         } else if line == "QUIT" || line.starts_with("QUIT ") {
@@ -56,8 +53,10 @@ async fn handle_irc_connection(stream: tokio::net::TcpStream) {
         }
 
         if !registered && !nick.is_empty() && user_seen {
-            let welcome =
-                format!(":localhost 001 {} :Welcome to the test IRC server\r\n", nick);
+            let welcome = format!(
+                ":localhost 001 {} :Welcome to the test IRC server\r\n",
+                nick
+            );
             let _ = writer.write_all(welcome.as_bytes()).await;
             registered = true;
         }
@@ -185,7 +184,10 @@ async fn irc_receive_parses_sender_and_channel() {
         "testbot".to_string(),
     );
     client.initialize().await.unwrap();
-    client.send_message("#mychannel", "test content").await.unwrap();
+    client
+        .send_message("#mychannel", "test content")
+        .await
+        .unwrap();
 
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 

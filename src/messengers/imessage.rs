@@ -11,7 +11,10 @@ pub struct IMessageMessenger {
 
 impl IMessageMessenger {
     pub fn new(name: String) -> Self {
-        Self { name, connected: false }
+        Self {
+            name,
+            connected: false,
+        }
     }
 }
 
@@ -54,7 +57,10 @@ end tell"#,
                 .output()
                 .await?;
             if output.status.success() {
-                Ok(format!("imessage:{}", chrono::Utc::now().timestamp_millis()))
+                Ok(format!(
+                    "imessage:{}",
+                    chrono::Utc::now().timestamp_millis()
+                ))
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 anyhow::bail!("iMessage AppleScript failed: {}", stderr);

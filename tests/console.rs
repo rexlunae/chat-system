@@ -94,7 +94,11 @@ async fn console_enqueue_multiple_messages() {
     let mut m = ConsoleMessenger::new("test".to_string());
     m.initialize().await.unwrap();
     for i in 0..5 {
-        m.enqueue(make_message(&i.to_string(), "sender", &format!("message {}", i)));
+        m.enqueue(make_message(
+            &i.to_string(),
+            "sender",
+            &format!("message {}", i),
+        ));
     }
     let msgs = m.receive_messages().await.unwrap();
     assert_eq!(msgs.len(), 5);

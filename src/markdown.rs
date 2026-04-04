@@ -245,7 +245,9 @@ pub fn markdown_to_slack(text: &str) -> String {
         }
 
         // Header: # at line start → *Header*
-        if (i == 0 || bytes.get(i.saturating_sub(1)) == Some(&b'\n')) && text.get(i..i + 1) == Some("#") {
+        if (i == 0 || bytes.get(i.saturating_sub(1)) == Some(&b'\n'))
+            && text.get(i..i + 1) == Some("#")
+        {
             // Count heading level (we just flatten to bold)
             let mut hashes = 0;
             let mut j = i;

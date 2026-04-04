@@ -10,9 +10,18 @@ pub enum RichTextNode {
     Italic(Vec<RichTextNode>),
     Strikethrough(Vec<RichTextNode>),
     Code(String),
-    CodeBlock { language: Option<String>, code: String },
-    Link { url: String, text: Vec<RichTextNode> },
-    Mention { id: String, name: String },
+    CodeBlock {
+        language: Option<String>,
+        code: String,
+    },
+    Link {
+        url: String,
+        text: Vec<RichTextNode>,
+    },
+    Mention {
+        id: String,
+        name: String,
+    },
     Emoji(String),
     Paragraph(Vec<RichTextNode>),
     ListItem(Vec<RichTextNode>),
@@ -44,13 +53,22 @@ impl RichTextNode {
         match self {
             RichTextNode::Plain(s) => s.clone(),
             RichTextNode::Bold(children) => {
-                format!("**{}**", children.iter().map(|n| n.to_markdown()).collect::<String>())
+                format!(
+                    "**{}**",
+                    children.iter().map(|n| n.to_markdown()).collect::<String>()
+                )
             }
             RichTextNode::Italic(children) => {
-                format!("*{}*", children.iter().map(|n| n.to_markdown()).collect::<String>())
+                format!(
+                    "*{}*",
+                    children.iter().map(|n| n.to_markdown()).collect::<String>()
+                )
             }
             RichTextNode::Strikethrough(children) => {
-                format!("~~{}~~", children.iter().map(|n| n.to_markdown()).collect::<String>())
+                format!(
+                    "~~{}~~",
+                    children.iter().map(|n| n.to_markdown()).collect::<String>()
+                )
             }
             RichTextNode::Code(s) => format!("`{}`", s),
             RichTextNode::CodeBlock { language, code } => {
@@ -61,7 +79,11 @@ impl RichTextNode {
                 }
             }
             RichTextNode::Link { url, text } => {
-                format!("[{}]({})", text.iter().map(|n| n.to_markdown()).collect::<String>(), url)
+                format!(
+                    "[{}]({})",
+                    text.iter().map(|n| n.to_markdown()).collect::<String>(),
+                    url
+                )
             }
             RichTextNode::Mention { name, .. } => format!("@{}", name),
             RichTextNode::Emoji(e) => e.clone(),
@@ -75,18 +97,40 @@ impl RichTextNode {
         match self {
             RichTextNode::Plain(s) => html_escape(s),
             RichTextNode::Bold(children) => {
-                format!("<b>{}</b>", children.iter().map(|n| n.to_matrix_html()).collect::<String>())
+                format!(
+                    "<b>{}</b>",
+                    children
+                        .iter()
+                        .map(|n| n.to_matrix_html())
+                        .collect::<String>()
+                )
             }
             RichTextNode::Italic(children) => {
-                format!("<i>{}</i>", children.iter().map(|n| n.to_matrix_html()).collect::<String>())
+                format!(
+                    "<i>{}</i>",
+                    children
+                        .iter()
+                        .map(|n| n.to_matrix_html())
+                        .collect::<String>()
+                )
             }
             RichTextNode::Strikethrough(children) => {
-                format!("<del>{}</del>", children.iter().map(|n| n.to_matrix_html()).collect::<String>())
+                format!(
+                    "<del>{}</del>",
+                    children
+                        .iter()
+                        .map(|n| n.to_matrix_html())
+                        .collect::<String>()
+                )
             }
             RichTextNode::Code(s) => format!("<code>{}</code>", html_escape(s)),
             RichTextNode::CodeBlock { language, code } => {
                 if let Some(lang) = language {
-                    format!("<pre><code class=\"language-{}\">{}</code></pre>", lang, html_escape(code))
+                    format!(
+                        "<pre><code class=\"language-{}\">{}</code></pre>",
+                        lang,
+                        html_escape(code)
+                    )
                 } else {
                     format!("<pre>{}</pre>", html_escape(code))
                 }
@@ -110,10 +154,22 @@ impl RichTextNode {
         match self {
             RichTextNode::Plain(s) => s.clone(),
             RichTextNode::Bold(children) => {
-                format!("\x02{}\x02", children.iter().map(|n| n.to_irc_formatted()).collect::<String>())
+                format!(
+                    "\x02{}\x02",
+                    children
+                        .iter()
+                        .map(|n| n.to_irc_formatted())
+                        .collect::<String>()
+                )
             }
             RichTextNode::Italic(children) => {
-                format!("\x1D{}\x1D", children.iter().map(|n| n.to_irc_formatted()).collect::<String>())
+                format!(
+                    "\x1D{}\x1D",
+                    children
+                        .iter()
+                        .map(|n| n.to_irc_formatted())
+                        .collect::<String>()
+                )
             }
             RichTextNode::Strikethrough(children) => {
                 children.iter().map(|n| n.to_irc_formatted()).collect()
@@ -121,7 +177,13 @@ impl RichTextNode {
             RichTextNode::Code(s) => format!("`{}`", s),
             RichTextNode::CodeBlock { code, .. } => code.clone(),
             RichTextNode::Link { url, text } => {
-                format!("{} ({})", text.iter().map(|n| n.to_irc_formatted()).collect::<String>(), url)
+                format!(
+                    "{} ({})",
+                    text.iter()
+                        .map(|n| n.to_irc_formatted())
+                        .collect::<String>(),
+                    url
+                )
             }
             RichTextNode::Mention { name, .. } => format!("@{}", name),
             RichTextNode::Emoji(e) => e.clone(),
@@ -135,18 +197,42 @@ impl RichTextNode {
         match self {
             RichTextNode::Plain(s) => s.clone(),
             RichTextNode::Bold(children) => {
-                format!("*{}*", children.iter().map(|n| n.to_whatsapp_formatted()).collect::<String>())
+                format!(
+                    "*{}*",
+                    children
+                        .iter()
+                        .map(|n| n.to_whatsapp_formatted())
+                        .collect::<String>()
+                )
             }
             RichTextNode::Italic(children) => {
-                format!("_{}_", children.iter().map(|n| n.to_whatsapp_formatted()).collect::<String>())
+                format!(
+                    "_{}_",
+                    children
+                        .iter()
+                        .map(|n| n.to_whatsapp_formatted())
+                        .collect::<String>()
+                )
             }
             RichTextNode::Strikethrough(children) => {
-                format!("~{}~", children.iter().map(|n| n.to_whatsapp_formatted()).collect::<String>())
+                format!(
+                    "~{}~",
+                    children
+                        .iter()
+                        .map(|n| n.to_whatsapp_formatted())
+                        .collect::<String>()
+                )
             }
             RichTextNode::Code(s) => format!("`{}`", s),
             RichTextNode::CodeBlock { code, .. } => format!("```{}```", code),
             RichTextNode::Link { url, text } => {
-                format!("{} ({})", text.iter().map(|n| n.to_whatsapp_formatted()).collect::<String>(), url)
+                format!(
+                    "{} ({})",
+                    text.iter()
+                        .map(|n| n.to_whatsapp_formatted())
+                        .collect::<String>(),
+                    url
+                )
             }
             RichTextNode::Mention { name, .. } => format!("@{}", name),
             RichTextNode::Emoji(e) => e.clone(),
@@ -273,20 +359,30 @@ impl RichText {
                         String::new()
                     };
                     if let Some(top) = stack.last_mut() {
-                        top.push(RichTextNode::Link { url, text: link_text });
+                        top.push(RichTextNode::Link {
+                            url,
+                            text: link_text,
+                        });
                     }
                 }
                 Event::End(TagEnd::CodeBlock) => {
                     let code_nodes = stack.pop().unwrap_or_default();
                     let lang_node = stack.pop().unwrap_or_default();
                     let lang = if let Some(RichTextNode::Plain(l)) = lang_node.into_iter().next() {
-                        if l.is_empty() { None } else { Some(l) }
+                        if l.is_empty() {
+                            None
+                        } else {
+                            Some(l)
+                        }
                     } else {
                         None
                     };
                     let code: String = code_nodes.iter().map(|n| n.to_plain_text()).collect();
                     if let Some(top) = stack.last_mut() {
-                        top.push(RichTextNode::CodeBlock { language: lang, code });
+                        top.push(RichTextNode::CodeBlock {
+                            language: lang,
+                            code,
+                        });
                     }
                 }
                 Event::Code(text) => {
@@ -333,26 +429,34 @@ mod tests {
 
     #[test]
     fn discord_bold_renders_stars() {
-        let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain("hi".into())])]);
+        let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain(
+            "hi".into(),
+        )])]);
         assert!(rt.to_discord_markdown().contains("**hi**"));
     }
 
     #[test]
     fn matrix_bold_renders_b_tag() {
-        let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain("hi".into())])]);
+        let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain(
+            "hi".into(),
+        )])]);
         assert!(rt.to_matrix_html().contains("<b>hi</b>"));
     }
 
     #[test]
     fn irc_bold_uses_control_char() {
-        let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain("hi".into())])]);
+        let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain(
+            "hi".into(),
+        )])]);
         let s = rt.to_irc_formatted();
         assert!(s.contains('\x02'));
     }
 
     #[test]
     fn whatsapp_bold_uses_stars() {
-        let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain("hi".into())])]);
+        let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain(
+            "hi".into(),
+        )])]);
         assert!(rt.to_whatsapp_formatted().contains("*hi*"));
     }
 

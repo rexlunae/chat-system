@@ -15,14 +15,24 @@ pub struct MatrixMessenger {
 
 impl MatrixMessenger {
     pub fn new(name: String, homeserver: String, username: String, password: String) -> Self {
-        Self { name, homeserver, username, password, connected: false }
+        Self {
+            name,
+            homeserver,
+            username,
+            password,
+            connected: false,
+        }
     }
 }
 
 #[async_trait]
 impl Messenger for MatrixMessenger {
-    fn name(&self) -> &str { &self.name }
-    fn messenger_type(&self) -> &str { "matrix" }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    fn messenger_type(&self) -> &str {
+        "matrix"
+    }
     async fn initialize(&mut self) -> Result<()> {
         self.connected = true;
         Ok(())
@@ -30,7 +40,14 @@ impl Messenger for MatrixMessenger {
     async fn send_message(&self, _room: &str, _content: &str) -> Result<String> {
         anyhow::bail!("Matrix messenger is a stub. Enable the matrix feature and implement fully.")
     }
-    async fn receive_messages(&self) -> Result<Vec<Message>> { Ok(Vec::new()) }
-    fn is_connected(&self) -> bool { self.connected }
-    async fn disconnect(&mut self) -> Result<()> { self.connected = false; Ok(()) }
+    async fn receive_messages(&self) -> Result<Vec<Message>> {
+        Ok(Vec::new())
+    }
+    fn is_connected(&self) -> bool {
+        self.connected
+    }
+    async fn disconnect(&mut self) -> Result<()> {
+        self.connected = false;
+        Ok(())
+    }
 }

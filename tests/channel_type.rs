@@ -47,31 +47,76 @@ fn channel_type_display_name() {
 
 #[test]
 fn channel_type_from_str_lowercase() {
-    assert_eq!(ChannelType::from_str("telegram").unwrap(), ChannelType::Telegram);
-    assert_eq!(ChannelType::from_str("whatsapp").unwrap(), ChannelType::Whatsapp);
-    assert_eq!(ChannelType::from_str("msteams").unwrap(), ChannelType::MsTeams);
-    assert_eq!(ChannelType::from_str("discord").unwrap(), ChannelType::Discord);
+    assert_eq!(
+        ChannelType::from_str("telegram").unwrap(),
+        ChannelType::Telegram
+    );
+    assert_eq!(
+        ChannelType::from_str("whatsapp").unwrap(),
+        ChannelType::Whatsapp
+    );
+    assert_eq!(
+        ChannelType::from_str("msteams").unwrap(),
+        ChannelType::MsTeams
+    );
+    assert_eq!(
+        ChannelType::from_str("discord").unwrap(),
+        ChannelType::Discord
+    );
     assert_eq!(ChannelType::from_str("slack").unwrap(), ChannelType::Slack);
     assert_eq!(ChannelType::from_str("irc").unwrap(), ChannelType::Irc);
-    assert_eq!(ChannelType::from_str("matrix").unwrap(), ChannelType::Matrix);
-    assert_eq!(ChannelType::from_str("signal").unwrap(), ChannelType::Signal);
-    assert_eq!(ChannelType::from_str("googlechat").unwrap(), ChannelType::GoogleChat);
-    assert_eq!(ChannelType::from_str("imessage").unwrap(), ChannelType::IMessage);
-    assert_eq!(ChannelType::from_str("console").unwrap(), ChannelType::Console);
-    assert_eq!(ChannelType::from_str("webhook").unwrap(), ChannelType::Webhook);
+    assert_eq!(
+        ChannelType::from_str("matrix").unwrap(),
+        ChannelType::Matrix
+    );
+    assert_eq!(
+        ChannelType::from_str("signal").unwrap(),
+        ChannelType::Signal
+    );
+    assert_eq!(
+        ChannelType::from_str("googlechat").unwrap(),
+        ChannelType::GoogleChat
+    );
+    assert_eq!(
+        ChannelType::from_str("imessage").unwrap(),
+        ChannelType::IMessage
+    );
+    assert_eq!(
+        ChannelType::from_str("console").unwrap(),
+        ChannelType::Console
+    );
+    assert_eq!(
+        ChannelType::from_str("webhook").unwrap(),
+        ChannelType::Webhook
+    );
 }
 
 #[test]
 fn channel_type_from_str_aliases() {
-    assert_eq!(ChannelType::from_str("teams").unwrap(), ChannelType::MsTeams);
-    assert_eq!(ChannelType::from_str("microsoft teams").unwrap(), ChannelType::MsTeams);
-    assert_eq!(ChannelType::from_str("google chat").unwrap(), ChannelType::GoogleChat);
+    assert_eq!(
+        ChannelType::from_str("teams").unwrap(),
+        ChannelType::MsTeams
+    );
+    assert_eq!(
+        ChannelType::from_str("microsoft teams").unwrap(),
+        ChannelType::MsTeams
+    );
+    assert_eq!(
+        ChannelType::from_str("google chat").unwrap(),
+        ChannelType::GoogleChat
+    );
 }
 
 #[test]
 fn channel_type_from_str_is_case_insensitive() {
-    assert_eq!(ChannelType::from_str("TELEGRAM").unwrap(), ChannelType::Telegram);
-    assert_eq!(ChannelType::from_str("Discord").unwrap(), ChannelType::Discord);
+    assert_eq!(
+        ChannelType::from_str("TELEGRAM").unwrap(),
+        ChannelType::Telegram
+    );
+    assert_eq!(
+        ChannelType::from_str("Discord").unwrap(),
+        ChannelType::Discord
+    );
     assert_eq!(ChannelType::from_str("SLACK").unwrap(), ChannelType::Slack);
     assert_eq!(ChannelType::from_str("IRC").unwrap(), ChannelType::Irc);
 }
@@ -228,6 +273,10 @@ fn descriptor_channel_type_and_display_name_consistent() {
 fn all_channel_types_support_outbound() {
     for ct in ChannelType::ALL {
         let d = ct.descriptor();
-        assert!(d.capabilities.supports_outbound, "{} should support outbound", ct.as_str());
+        assert!(
+            d.capabilities.supports_outbound,
+            "{} should support outbound",
+            ct.as_str()
+        );
     }
 }

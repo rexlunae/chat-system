@@ -11,26 +11,34 @@ fn plain_text_strips_formatting() {
 
 #[test]
 fn discord_bold() {
-    let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain("hi".into())])]);
+    let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain(
+        "hi".into(),
+    )])]);
     assert!(rt.to_discord_markdown().contains("**hi**"));
 }
 
 #[test]
 fn matrix_html_bold() {
-    let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain("hi".into())])]);
+    let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain(
+        "hi".into(),
+    )])]);
     assert!(rt.to_matrix_html().contains("<b>hi</b>"));
 }
 
 #[test]
 fn irc_bold_uses_control_char() {
-    let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain("hi".into())])]);
+    let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain(
+        "hi".into(),
+    )])]);
     let s = rt.to_irc_formatted();
     assert!(s.contains('\x02'));
 }
 
 #[test]
 fn whatsapp_bold() {
-    let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain("hi".into())])]);
+    let rt = RichText(vec![RichTextNode::Bold(vec![RichTextNode::Plain(
+        "hi".into(),
+    )])]);
     assert!(rt.to_whatsapp_formatted().contains("*hi*"));
 }
 

@@ -39,7 +39,9 @@ async fn handle_client(stream: tokio::net::TcpStream) -> anyhow::Result<()> {
             user_seen = true;
         } else if line.starts_with("PING ") {
             let token = line.trim_start_matches("PING ");
-            writer.write_all(format!("PONG {}\r\n", token).as_bytes()).await?;
+            writer
+                .write_all(format!("PONG {}\r\n", token).as_bytes())
+                .await?;
         } else if line.starts_with("PRIVMSG ") {
             let parts: Vec<&str> = line.splitn(3, ' ').collect();
             if parts.len() == 3 {
@@ -53,7 +55,10 @@ async fn handle_client(stream: tokio::net::TcpStream) -> anyhow::Result<()> {
         }
 
         if !registered && !nick.is_empty() && user_seen {
-            let welcome = format!(":localhost 001 {} :Welcome to the Echo IRC server\r\n", nick);
+            let welcome = format!(
+                ":localhost 001 {} :Welcome to the Echo IRC server\r\n",
+                nick
+            );
             writer.write_all(welcome.as_bytes()).await?;
             registered = true;
         }

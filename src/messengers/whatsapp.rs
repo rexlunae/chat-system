@@ -12,14 +12,21 @@ pub struct WhatsAppMessenger {
 
 impl WhatsAppMessenger {
     pub fn new(name: String) -> Self {
-        Self { name, connected: false }
+        Self {
+            name,
+            connected: false,
+        }
     }
 }
 
 #[async_trait]
 impl Messenger for WhatsAppMessenger {
-    fn name(&self) -> &str { &self.name }
-    fn messenger_type(&self) -> &str { "whatsapp" }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    fn messenger_type(&self) -> &str {
+        "whatsapp"
+    }
     async fn initialize(&mut self) -> Result<()> {
         self.connected = true;
         Ok(())
@@ -27,7 +34,14 @@ impl Messenger for WhatsAppMessenger {
     async fn send_message(&self, _recipient: &str, _content: &str) -> Result<String> {
         anyhow::bail!("WhatsApp messenger is a stub.")
     }
-    async fn receive_messages(&self) -> Result<Vec<Message>> { Ok(Vec::new()) }
-    fn is_connected(&self) -> bool { self.connected }
-    async fn disconnect(&mut self) -> Result<()> { self.connected = false; Ok(()) }
+    async fn receive_messages(&self) -> Result<Vec<Message>> {
+        Ok(Vec::new())
+    }
+    fn is_connected(&self) -> bool {
+        self.connected
+    }
+    async fn disconnect(&mut self) -> Result<()> {
+        self.connected = false;
+        Ok(())
+    }
 }
