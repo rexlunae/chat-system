@@ -46,10 +46,7 @@ mod tests {
 
     #[tokio::test]
     async fn whatsapp_send_message_without_init_returns_err() {
-        let m = WhatsAppMessenger::new(
-            "wa".to_string(),
-            "/tmp/test_wa_send_noinit.db".to_string(),
-        );
+        let m = WhatsAppMessenger::new("wa".to_string(), "/tmp/test_wa_send_noinit.db".to_string());
         let result = m.send_message("15551234567", "hello").await;
         assert!(result.is_err());
         assert!(

@@ -13,8 +13,8 @@ use crate::{Message, Messenger};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
-use wa_rs::{bot::Bot, proto_helpers::MessageExt, store::SqliteStore, Client, Jid};
 use wa_rs::types::events::Event;
+use wa_rs::{bot::Bot, proto_helpers::MessageExt, store::SqliteStore, Client, Jid};
 use wa_rs_tokio_transport::TokioWebSocketTransportFactory;
 use wa_rs_ureq_http::UreqHttpClient;
 
