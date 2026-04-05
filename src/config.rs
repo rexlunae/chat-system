@@ -102,11 +102,19 @@ pub struct TeamsConfig {
     pub channel_id: Option<String>,
 }
 
-/// Configuration for a Google Chat incoming webhook.
+/// Configuration for Google Chat.
+///
+/// Use `webhook_url` for incoming-webhook mode, or `token` + `space_id` for
+/// authenticated Google Chat API mode with inbound polling support.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoogleChatConfig {
     pub name: String,
-    pub webhook_url: String,
+    #[serde(default)]
+    pub webhook_url: Option<String>,
+    #[serde(default)]
+    pub token: Option<String>,
+    #[serde(default)]
+    pub space_id: Option<String>,
 }
 
 /// Configuration for the console (stdin/stdout) messenger.
@@ -262,7 +270,15 @@ impl MessengerConfig {
                     "Teams config requires either webhook_url or token + team_id + channel_id"
                 ),
             },
-            Self::GoogleChat(c) => Box::new(GoogleChatMessenger::new(&c.name, &c.webhook_url)),
+            Self::GoogleChat(c) => match (&c.webhook_url, &c.token, &c.space_id) {
+                (_, Some(token), Some(space_id)) => {
+                    Box::new(GoogleChatMessenger::new_api(&c.name, token, space_id))
+                }
+                (Some(webhook_url), _, _) => Box::new(GoogleChatMessenger::new(&c.name, webhook_url)),
+                _ => anyhow::bail!(
+                    "Google Chat config requires either webhook_url or token + space_id"
+                ),
+            },
             Self::Console(c) => Box::new(ConsoleMessenger::new(&c.name)),
             Self::Webhook(c) => Box::new(WebhookMessenger::new(&c.name, &c.url)),
             Self::IMessage(c) => Box::new(IMessageMessenger::new(&c.name)),

@@ -55,6 +55,12 @@ struct MockTeamsState {
     message_list_requests: Mutex<usize>,
 }
 
+#[derive(Default)]
+struct MockGoogleChatState {
+    sent_messages: Mutex<Vec<(String, String)>>,
+    list_requests: Mutex<usize>,
+}
+
 async fn start_mock_discord_gateway_server() -> String {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -366,6 +372,83 @@ async fn create_initialized_graph_teams_messenger() -> (TeamsMessenger, Arc<Mock
     (messenger, state)
 }
 
+async fn start_mock_google_chat_api_server() -> (String, Arc<MockGoogleChatState>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let state = Arc::new(MockGoogleChatState::default());
+    let state_for_server = state.clone();
+
+    tokio::spawn(async move {
+        while let Ok((mut stream, _)) = listener.accept().await {
+            let state = state_for_server.clone();
+
+            tokio::spawn(async move {
+                let mut buf = vec![0u8; 8192];
+                let bytes_read = stream.read(&mut buf).await.unwrap_or(0);
+                let request = String::from_utf8_lossy(&buf[..bytes_read]);
+                let mut lines = request.lines();
+                let request_line = lines.next().unwrap_or_default();
+                let mut parts = request_line.split_whitespace();
+                let method = parts.next().unwrap_or_default();
+                let path = parts.next().unwrap_or_default();
+                let body = request.split("\r\n\r\n").nth(1).unwrap_or_default();
+
+                let (status_code, status_text, response_body) = match (method, path) {
+                    ("GET", "/spaces/space-123") => (
+                        200,
+                        "OK",
+                        r#"{"name":"spaces/space-123","spaceType":"SPACE"}"#.to_string(),
+                    ),
+                    ("POST", "/spaces/space-123/messages") => {
+                        let payload: Value = serde_json::from_str(body).unwrap_or(Value::Null);
+                        let text = payload["text"].as_str().unwrap_or_default().to_string();
+                        state
+                            .sent_messages
+                            .lock()
+                            .await
+                            .push(("space-123".to_string(), text));
+                        (
+                            200,
+                            "OK",
+                            r#"{"name":"spaces/space-123/messages/msg-3"}"#.to_string(),
+                        )
+                    }
+                    ("GET", "/spaces/space-123/messages") => {
+                        let mut requests = state.list_requests.lock().await;
+                        *requests += 1;
+                        (
+                            200,
+                            "OK",
+                            r#"{"messages":[{"name":"spaces/space-123/messages/msg-2","text":"second google chat message","createTime":"2024-01-01T00:00:02Z","sender":{"displayName":"Bob"},"space":{"type":"SPACE"}},{"name":"spaces/space-123/messages/msg-1","text":"first google chat message","createTime":"2024-01-01T00:00:01Z","sender":{"displayName":"Alice"},"space":{"type":"SPACE"}}]}"#.to_string(),
+                        )
+                    }
+                    _ => (404, "Not Found", r#"{"error":"not found"}"#.to_string()),
+                };
+
+                let response = format!(
+                    "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    status_code,
+                    status_text,
+                    response_body.len(),
+                    response_body
+                );
+                let _ = stream.write_all(response.as_bytes()).await;
+            });
+        }
+    });
+
+    (format!("http://127.0.0.1:{}", addr.port()), state)
+}
+
+async fn create_initialized_api_google_chat_messenger() -> (GoogleChatMessenger, Arc<MockGoogleChatState>) {
+    let (api_base_url, state) = start_mock_google_chat_api_server().await;
+    let mut messenger = GoogleChatMessenger::new_api("gchat", "fake-token", "space-123")
+        .with_api_base_url(api_base_url);
+
+    messenger.initialize().await.unwrap();
+    (messenger, state)
+}
+
 // ─── WebhookMessenger ────────────────────────────────────────────────────────
 
 #[tokio::test]
@@ -537,6 +620,12 @@ async fn google_chat_initialize_sets_connected() {
 }
 
 #[tokio::test]
+async fn google_chat_api_initialize_sets_connected() {
+    let (messenger, _) = create_initialized_api_google_chat_messenger().await;
+    assert!(messenger.is_connected());
+}
+
+#[tokio::test]
 async fn google_chat_disconnect_clears_connected() {
     let mut m = GoogleChatMessenger::new("gchat".to_string(), "http://example.com".to_string());
     m.initialize().await.unwrap();
@@ -554,6 +643,17 @@ async fn google_chat_send_message_success() {
 }
 
 #[tokio::test]
+async fn google_chat_api_send_message_posts_to_messages_endpoint() {
+    let (messenger, state) = create_initialized_api_google_chat_messenger().await;
+
+    let id = messenger.send_message("", "hello google chat api").await.unwrap();
+
+    assert_eq!(id, "spaces/space-123/messages/msg-3");
+    let sent_messages = state.sent_messages.lock().await;
+    assert_eq!(sent_messages.as_slice(), &[("space-123".to_string(), "hello google chat api".to_string())]);
+}
+
+#[tokio::test]
 async fn google_chat_send_message_server_error_returns_err() {
     let url = start_mock_http_server(500, "error").await;
     let mut m = GoogleChatMessenger::new("gchat".to_string(), url);
@@ -568,6 +668,25 @@ async fn google_chat_receive_returns_empty() {
     m.initialize().await.unwrap();
     let msgs = m.receive_messages().await.unwrap();
     assert!(msgs.is_empty());
+}
+
+#[tokio::test]
+async fn google_chat_api_receive_messages_polls_without_duplicates() {
+    let (messenger, state) = create_initialized_api_google_chat_messenger().await;
+
+    let first_poll = messenger.receive_messages().await.unwrap();
+    assert_eq!(first_poll.len(), 2);
+    assert_eq!(first_poll[0].id, "spaces/space-123/messages/msg-1");
+    assert_eq!(first_poll[0].sender, "Alice");
+    assert_eq!(first_poll[1].id, "spaces/space-123/messages/msg-2");
+    assert_eq!(first_poll[1].sender, "Bob");
+    assert_eq!(first_poll[1].channel.as_deref(), Some("space-123"));
+
+    let second_poll = messenger.receive_messages().await.unwrap();
+    assert!(second_poll.is_empty());
+
+    let requests = *state.list_requests.lock().await;
+    assert!(requests >= 2);
 }
 
 // ─── DiscordMessenger (state management; API URL is hardcoded) ────────────────
