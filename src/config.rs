@@ -85,11 +85,21 @@ pub struct SlackConfig {
     pub token: String,
 }
 
-/// Configuration for a Microsoft Teams incoming webhook.
+/// Configuration for Microsoft Teams.
+///
+/// Use `webhook_url` for legacy incoming-webhook mode, or `token` + `team_id`
+/// + `channel_id` for Microsoft Graph mode with inbound polling support.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamsConfig {
     pub name: String,
-    pub webhook_url: String,
+    #[serde(default)]
+    pub webhook_url: Option<String>,
+    #[serde(default)]
+    pub token: Option<String>,
+    #[serde(default)]
+    pub team_id: Option<String>,
+    #[serde(default)]
+    pub channel_id: Option<String>,
 }
 
 /// Configuration for a Google Chat incoming webhook.
@@ -243,7 +253,15 @@ impl MessengerConfig {
             Self::Discord(c) => Box::new(DiscordMessenger::new(&c.name, &c.token)),
             Self::Telegram(c) => Box::new(TelegramMessenger::new(&c.name, &c.token)),
             Self::Slack(c) => Box::new(SlackMessenger::new(&c.name, &c.token)),
-            Self::Teams(c) => Box::new(TeamsMessenger::new(&c.name, &c.webhook_url)),
+            Self::Teams(c) => match (&c.webhook_url, &c.token, &c.team_id, &c.channel_id) {
+                (_, Some(token), Some(team_id), Some(channel_id)) => Box::new(
+                    TeamsMessenger::new_graph(&c.name, token, team_id, channel_id),
+                ),
+                (Some(webhook_url), _, _, _) => Box::new(TeamsMessenger::new(&c.name, webhook_url)),
+                _ => anyhow::bail!(
+                    "Teams config requires either webhook_url or token + team_id + channel_id"
+                ),
+            },
             Self::GoogleChat(c) => Box::new(GoogleChatMessenger::new(&c.name, &c.webhook_url)),
             Self::Console(c) => Box::new(ConsoleMessenger::new(&c.name)),
             Self::Webhook(c) => Box::new(WebhookMessenger::new(&c.name, &c.url)),

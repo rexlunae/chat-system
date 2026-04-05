@@ -49,6 +49,12 @@ struct MockSlackState {
     history_requests: Mutex<Vec<String>>,
 }
 
+#[derive(Default)]
+struct MockTeamsState {
+    sent_messages: Mutex<Vec<(String, String)>>,
+    message_list_requests: Mutex<usize>,
+}
+
 async fn start_mock_discord_gateway_server() -> String {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -281,6 +287,85 @@ async fn create_initialized_slack_messenger() -> (SlackMessenger, Arc<MockSlackS
     (messenger, state)
 }
 
+async fn start_mock_teams_graph_server() -> (String, Arc<MockTeamsState>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let state = Arc::new(MockTeamsState::default());
+    let state_for_server = state.clone();
+
+    tokio::spawn(async move {
+        while let Ok((mut stream, _)) = listener.accept().await {
+            let state = state_for_server.clone();
+
+            tokio::spawn(async move {
+                let mut buf = vec![0u8; 8192];
+                let bytes_read = stream.read(&mut buf).await.unwrap_or(0);
+                let request = String::from_utf8_lossy(&buf[..bytes_read]);
+                let mut lines = request.lines();
+                let request_line = lines.next().unwrap_or_default();
+                let mut parts = request_line.split_whitespace();
+                let method = parts.next().unwrap_or_default();
+                let path = parts.next().unwrap_or_default();
+                let body = request.split("\r\n\r\n").nth(1).unwrap_or_default();
+
+                let (status_code, status_text, response_body) = match (method, path) {
+                    ("GET", "/me") => (200, "OK", r#"{"id":"bot-1","displayName":"Teams Bot"}"#.to_string()),
+                    ("POST", "/teams/team-1/channels/channel-123/messages") => {
+                        let payload: Value = serde_json::from_str(body).unwrap_or(Value::Null);
+                        let content = payload["body"]["content"].as_str().unwrap_or_default().to_string();
+                        state.sent_messages.lock().await.push(("channel-123".to_string(), content));
+                        (200, "OK", r#"{"id":"graph-message-3"}"#.to_string())
+                    }
+                    ("GET", "/teams/team-1/channels/channel-123/messages") => {
+                        let mut requests = state.message_list_requests.lock().await;
+                        *requests += 1;
+
+                        if *requests == 1 {
+                            (
+                                200,
+                                "OK",
+                                r#"{"value":[{"id":"graph-message-2","createdDateTime":"2024-01-01T00:00:02Z","body":{"content":"second teams message"},"from":{"user":{"displayName":"Bob"}}},{"id":"graph-message-1","createdDateTime":"2024-01-01T00:00:01Z","body":{"content":"first teams message"},"from":{"user":{"displayName":"Alice"}}}]}"#.to_string(),
+                            )
+                        } else {
+                            (
+                                200,
+                                "OK",
+                                r#"{"value":[{"id":"graph-message-2","createdDateTime":"2024-01-01T00:00:02Z","body":{"content":"second teams message"},"from":{"user":{"displayName":"Bob"}}},{"id":"graph-message-1","createdDateTime":"2024-01-01T00:00:01Z","body":{"content":"first teams message"},"from":{"user":{"displayName":"Alice"}}}]}"#.to_string(),
+                            )
+                        }
+                    }
+                    _ => (404, "Not Found", r#"{"error":"not found"}"#.to_string()),
+                };
+
+                let response = format!(
+                    "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    status_code,
+                    status_text,
+                    response_body.len(),
+                    response_body
+                );
+                let _ = stream.write_all(response.as_bytes()).await;
+            });
+        }
+    });
+
+    (format!("http://127.0.0.1:{}", addr.port()), state)
+}
+
+async fn create_initialized_graph_teams_messenger() -> (TeamsMessenger, Arc<MockTeamsState>) {
+    let (graph_base_url, state) = start_mock_teams_graph_server().await;
+    let mut messenger = TeamsMessenger::new_graph(
+        "teams",
+        "fake-token",
+        "team-1",
+        "channel-123",
+    )
+    .with_graph_base_url(graph_base_url);
+
+    messenger.initialize().await.unwrap();
+    (messenger, state)
+}
+
 // ─── WebhookMessenger ────────────────────────────────────────────────────────
 
 #[tokio::test]
@@ -360,6 +445,12 @@ async fn teams_initialize_sets_connected() {
 }
 
 #[tokio::test]
+async fn teams_graph_initialize_sets_connected() {
+    let (messenger, _) = create_initialized_graph_teams_messenger().await;
+    assert!(messenger.is_connected());
+}
+
+#[tokio::test]
 async fn teams_disconnect_clears_connected() {
     let mut m = TeamsMessenger::new("teams".to_string(), "http://example.com".to_string());
     m.initialize().await.unwrap();
@@ -377,6 +468,17 @@ async fn teams_send_message_success() {
 }
 
 #[tokio::test]
+async fn teams_graph_send_message_posts_to_messages_endpoint() {
+    let (messenger, state) = create_initialized_graph_teams_messenger().await;
+
+    let id = messenger.send_message("", "hello teams graph").await.unwrap();
+
+    assert_eq!(id, "graph-message-3");
+    let sent_messages = state.sent_messages.lock().await;
+    assert_eq!(sent_messages.as_slice(), &[("channel-123".to_string(), "hello teams graph".to_string())]);
+}
+
+#[tokio::test]
 async fn teams_send_message_server_error_returns_err() {
     let url = start_mock_http_server(500, "error").await;
     let mut m = TeamsMessenger::new("teams".to_string(), url);
@@ -391,6 +493,25 @@ async fn teams_receive_returns_empty() {
     m.initialize().await.unwrap();
     let msgs = m.receive_messages().await.unwrap();
     assert!(msgs.is_empty());
+}
+
+#[tokio::test]
+async fn teams_graph_receive_messages_polls_without_duplicates() {
+    let (messenger, state) = create_initialized_graph_teams_messenger().await;
+
+    let first_poll = messenger.receive_messages().await.unwrap();
+    assert_eq!(first_poll.len(), 2);
+    assert_eq!(first_poll[0].id, "graph-message-1");
+    assert_eq!(first_poll[0].sender, "Alice");
+    assert_eq!(first_poll[1].id, "graph-message-2");
+    assert_eq!(first_poll[1].sender, "Bob");
+    assert_eq!(first_poll[1].channel.as_deref(), Some("channel-123"));
+
+    let second_poll = messenger.receive_messages().await.unwrap();
+    assert!(second_poll.is_empty());
+
+    let requests = *state.message_list_requests.lock().await;
+    assert!(requests >= 2);
 }
 
 // ─── GoogleChatMessenger ──────────────────────────────────────────────────────
