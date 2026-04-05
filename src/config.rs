@@ -278,40 +278,84 @@ pub struct IrcListenerConfig {
     pub address: String,
 }
 
-// ── ListenerConfig ────────────────────────────────────────────────────────────
+#[typetag::serde(name = "irc")]
+impl ListenerConfig for IrcListenerConfig {
+    fn protocol(&self) -> &str {
+        "irc"
+    }
 
-/// Protocol-selecting listener configuration.
-///
-/// The `protocol` field (the serde tag) identifies which wire protocol the
-/// listener speaks.  Currently only IRC is provided; additional protocols can
-/// be added as new variants.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "protocol", rename_all = "lowercase")]
-pub enum ListenerConfig {
-    Irc(IrcListenerConfig),
+    fn address(&self) -> &str {
+        &self.address
+    }
+
+    fn build(&self) -> Box<dyn crate::server::ChatListener> {
+        Box::new(crate::servers::IrcListener::new(&self.address))
+    }
+
+    fn clone_box(&self) -> Box<dyn ListenerConfig> {
+        Box::new(self.clone())
+    }
+
+    fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
 }
 
-impl ListenerConfig {
-    /// The protocol this listener speaks.
-    pub fn protocol(&self) -> &str {
-        match self {
-            Self::Irc(_) => "irc",
-        }
-    }
+// ── ListenerConfig ────────────────────────────────────────────────────────────
+
+/// Per-listener configuration trait.
+///
+/// Each protocol provides its own config struct that implements this trait.
+/// The trait is serde-compatible via [`typetag`], so `Vec<Box<dyn
+/// ListenerConfig>>` can be serialized and deserialized from JSON, TOML, etc.
+///
+/// # Implementing a custom listener config
+///
+/// ```rust,ignore
+/// use chat_system::config::ListenerConfig;
+///
+/// #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+/// pub struct MyListenerConfig { pub address: String }
+///
+/// #[typetag::serde(name = "my-protocol")]
+/// impl ListenerConfig for MyListenerConfig {
+///     fn protocol(&self) -> &str { "my-protocol" }
+///     fn address(&self) -> &str { &self.address }
+///     fn build(&self) -> Box<dyn chat_system::server::ChatListener> { todo!() }
+///     fn clone_box(&self) -> Box<dyn ListenerConfig> { Box::new(self.clone()) }
+///     fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+///         std::fmt::Debug::fmt(self, f)
+///     }
+/// }
+/// ```
+#[typetag::serde(tag = "protocol")]
+pub trait ListenerConfig: Send + Sync {
+    /// The wire protocol this listener speaks (e.g. `"irc"`).
+    fn protocol(&self) -> &str;
 
     /// The address this listener will bind.
-    pub fn address(&self) -> &str {
-        match self {
-            Self::Irc(c) => &c.address,
-        }
-    }
+    fn address(&self) -> &str;
 
     /// Construct a concrete [`ChatListener`](crate::server::ChatListener) from
     /// this config.
-    pub fn build(&self) -> Box<dyn crate::server::ChatListener> {
-        match self {
-            Self::Irc(c) => Box::new(crate::servers::IrcListener::new(&c.address)),
-        }
+    fn build(&self) -> Box<dyn crate::server::ChatListener>;
+
+    /// Clone this config into a new boxed trait object.
+    fn clone_box(&self) -> Box<dyn ListenerConfig>;
+
+    /// Format this config for debug output.
+    fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result;
+}
+
+impl Clone for Box<dyn ListenerConfig> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
+}
+
+impl std::fmt::Debug for dyn ListenerConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.debug_fmt(f)
     }
 }
 
@@ -319,8 +363,8 @@ impl ListenerConfig {
 
 /// Server configuration.
 ///
-/// A server has a `name` and a list of [`ListenerConfig`]s.  Each listener may
-/// use a different protocol; the server itself is protocol-agnostic.
+/// A server has a `name` and a list of listener configs.  Each listener may use
+/// a different protocol; the server itself is protocol-agnostic.
 ///
 /// # Example (JSON)
 ///
@@ -333,10 +377,10 @@ impl ListenerConfig {
 ///   ]
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServerConfig {
     pub name: String,
-    pub listeners: Vec<ListenerConfig>,
+    pub listeners: Vec<Box<dyn ListenerConfig>>,
 }
 
 impl ServerConfig {
@@ -346,7 +390,7 @@ impl ServerConfig {
     }
 
     /// The listener configurations.
-    pub fn listener_configs(&self) -> &[ListenerConfig] {
+    pub fn listener_configs(&self) -> &[Box<dyn ListenerConfig>] {
         &self.listeners
     }
 }
@@ -611,7 +655,7 @@ mod tests {
     fn server_config_roundtrip_json() {
         let cfg = ServerConfig {
             name: "srv".into(),
-            listeners: vec![ListenerConfig::Irc(IrcListenerConfig {
+            listeners: vec![Box::new(IrcListenerConfig {
                 address: "0.0.0.0:6667".into(),
             })],
         };
@@ -628,10 +672,10 @@ mod tests {
         let cfg = ServerConfig {
             name: "srv".into(),
             listeners: vec![
-                ListenerConfig::Irc(IrcListenerConfig {
+                Box::new(IrcListenerConfig {
                     address: "0.0.0.0:6667".into(),
                 }),
-                ListenerConfig::Irc(IrcListenerConfig {
+                Box::new(IrcListenerConfig {
                     address: "0.0.0.0:6697".into(),
                 }),
             ],
@@ -656,7 +700,7 @@ mod tests {
     fn generic_server_name_before_run() {
         let cfg = ServerConfig {
             name: "srv".into(),
-            listeners: vec![ListenerConfig::Irc(IrcListenerConfig {
+            listeners: vec![Box::new(IrcListenerConfig {
                 address: "127.0.0.1:7777".into(),
             })],
         };
