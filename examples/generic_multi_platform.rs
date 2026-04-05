@@ -56,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
         println!("  {label} (protocol={})", cfg.protocol_name());
         let mut gm = GenericMessenger::new(cfg);
         gm.initialize().await?;
-        mgr.add(Box::new(gm));
+        mgr = mgr.add(gm);
     }
     println!("  {} messenger(s) ready\n", mgr.messengers().len());
 

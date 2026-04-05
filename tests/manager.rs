@@ -34,9 +34,9 @@ async fn manager_default_is_empty() {
 #[tokio::test]
 async fn manager_add_increases_count() {
     let mut mgr = MessengerManager::new();
-    mgr.add(Box::new(make_console("a")));
+    mgr = mgr.add(make_console("a"));
     assert_eq!(mgr.messengers().len(), 1);
-    mgr.add(Box::new(make_console("b")));
+    mgr = mgr.add(make_console("b"));
     assert_eq!(mgr.messengers().len(), 2);
 }
 
@@ -44,7 +44,7 @@ async fn manager_add_increases_count() {
 async fn manager_add_three_messengers() {
     let mut mgr = MessengerManager::new();
     for name in ["a", "b", "c"] {
-        mgr.add(Box::new(make_console(name)));
+        mgr = mgr.add(make_console(name));
     }
     assert_eq!(mgr.messengers().len(), 3);
 }
@@ -52,8 +52,8 @@ async fn manager_add_three_messengers() {
 #[tokio::test]
 async fn manager_get_by_name_found() {
     let mut mgr = MessengerManager::new();
-    mgr.add(Box::new(make_console("alpha")));
-    mgr.add(Box::new(make_console("beta")));
+    mgr = mgr.add(make_console("alpha"));
+    mgr = mgr.add(make_console("beta"));
     assert!(mgr.get("alpha").is_some());
     assert!(mgr.get("beta").is_some());
 }
@@ -61,14 +61,14 @@ async fn manager_get_by_name_found() {
 #[tokio::test]
 async fn manager_get_by_name_not_found() {
     let mut mgr = MessengerManager::new();
-    mgr.add(Box::new(make_console("alpha")));
+    mgr = mgr.add(make_console("alpha"));
     assert!(mgr.get("gamma").is_none());
 }
 
 #[tokio::test]
 async fn manager_get_returns_correct_messenger() {
     let mut mgr = MessengerManager::new();
-    mgr.add(Box::new(make_console("my-console")));
+    mgr = mgr.add(make_console("my-console"));
     let m = mgr.get("my-console").unwrap();
     assert_eq!(m.name(), "my-console");
     assert_eq!(m.messenger_type(), "console");
@@ -76,9 +76,9 @@ async fn manager_get_returns_correct_messenger() {
 
 #[tokio::test]
 async fn manager_initialize_all() {
-    let mut mgr = MessengerManager::new();
-    mgr.add(Box::new(make_console("a")));
-    mgr.add(Box::new(make_console("b")));
+    let mut mgr = MessengerManager::new()
+        .add(make_console("a"))
+        .add(make_console("b"));
     mgr.initialize_all().await.unwrap();
     for m in mgr.messengers() {
         assert!(m.is_connected());
@@ -87,9 +87,9 @@ async fn manager_initialize_all() {
 
 #[tokio::test]
 async fn manager_disconnect_all() {
-    let mut mgr = MessengerManager::new();
-    mgr.add(Box::new(make_console("a")));
-    mgr.add(Box::new(make_console("b")));
+    let mut mgr = MessengerManager::new()
+        .add(make_console("a"))
+        .add(make_console("b"));
     mgr.initialize_all().await.unwrap();
     mgr.disconnect_all().await.unwrap();
     for m in mgr.messengers() {
@@ -99,8 +99,7 @@ async fn manager_disconnect_all() {
 
 #[tokio::test]
 async fn manager_receive_all_empty() {
-    let mut mgr = MessengerManager::new();
-    mgr.add(Box::new(make_console("a")));
+    let mut mgr = MessengerManager::new().add(make_console("a"));
     mgr.initialize_all().await.unwrap();
     let msgs = mgr.receive_all().await.unwrap();
     assert!(msgs.is_empty());
@@ -116,8 +115,8 @@ async fn manager_receive_all_collects_from_all_messengers() {
     m2.enqueue(make_message("2", "bob", "msg2"));
     m2.enqueue(make_message("3", "bob", "msg3"));
 
-    mgr.add(Box::new(m1));
-    mgr.add(Box::new(m2));
+    mgr = mgr.add(m1);
+    mgr = mgr.add(m2);
     mgr.initialize_all().await.unwrap();
 
     let msgs = mgr.receive_all().await.unwrap();
@@ -126,10 +125,10 @@ async fn manager_receive_all_collects_from_all_messengers() {
 
 #[tokio::test]
 async fn manager_broadcast_sends_to_all() {
-    let mut mgr = MessengerManager::new();
-    mgr.add(Box::new(make_console("a")));
-    mgr.add(Box::new(make_console("b")));
-    mgr.add(Box::new(make_console("c")));
+    let mut mgr = MessengerManager::new()
+        .add(make_console("a"))
+        .add(make_console("b"))
+        .add(make_console("c"));
     mgr.initialize_all().await.unwrap();
     let results = mgr.broadcast("#general", "hello everyone").await;
     assert_eq!(results.len(), 3);
@@ -147,10 +146,10 @@ async fn manager_broadcast_empty_returns_no_results() {
 
 #[tokio::test]
 async fn manager_messengers_slice_is_in_insertion_order() {
-    let mut mgr = MessengerManager::new();
-    mgr.add(Box::new(make_console("first")));
-    mgr.add(Box::new(make_console("second")));
-    mgr.add(Box::new(make_console("third")));
+    let mgr = MessengerManager::new()
+        .add(make_console("first"))
+        .add(make_console("second"))
+        .add(make_console("third"));
     let names: Vec<&str> = mgr.messengers().iter().map(|m| m.name()).collect();
     assert_eq!(names, vec!["first", "second", "third"]);
 }
@@ -159,10 +158,9 @@ async fn manager_messengers_slice_is_in_insertion_order() {
 async fn manager_receive_all_tolerates_messenger_with_error() {
     // ConsoleMessenger never errors, but the manager should collect
     // successfully from all that don't error.
-    let mut mgr = MessengerManager::new();
     let mut m = make_console("ok");
     m.enqueue(make_message("1", "alice", "hello"));
-    mgr.add(Box::new(m));
+    let mut mgr = MessengerManager::new().add(m);
     mgr.initialize_all().await.unwrap();
     let msgs = mgr.receive_all().await.unwrap();
     assert_eq!(msgs.len(), 1);

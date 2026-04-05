@@ -108,15 +108,15 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
-//!     let mut mgr = MessengerManager::new();
-//!     mgr.add(Box::new(GenericMessenger::new(MessengerConfig::Discord(DiscordConfig {
-//!         name: "discord".into(),
-//!         token: std::env::var("DISCORD_TOKEN")?,
-//!     }))));
-//!     mgr.add(Box::new(GenericMessenger::new(MessengerConfig::Telegram(TelegramConfig {
-//!         name: "telegram".into(),
-//!         token: std::env::var("TELEGRAM_TOKEN")?,
-//!     }))));
+//!     let mut mgr = MessengerManager::new()
+//!         .add(GenericMessenger::new(MessengerConfig::Discord(DiscordConfig {
+//!             name: "discord".into(),
+//!             token: std::env::var("DISCORD_TOKEN")?,
+//!         })))
+//!         .add(GenericMessenger::new(MessengerConfig::Telegram(TelegramConfig {
+//!             name: "telegram".into(),
+//!             token: std::env::var("TELEGRAM_TOKEN")?,
+//!         })));
 //!     mgr.initialize_all().await?;
 //!
 //!     // Broadcast to every connected platform
