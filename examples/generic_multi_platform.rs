@@ -29,9 +29,24 @@ async fn main() -> anyhow::Result<()> {
         //   MessengerConfig::Discord(DiscordConfig { name: "discord".into(), token: "…".into() })
         //   MessengerConfig::Telegram(TelegramConfig { name: "telegram".into(), token: "…".into() })
         //   MessengerConfig::Slack(SlackConfig { name: "slack".into(), token: "…".into() })
-        ("console-1", MessengerConfig::Console(ConsoleConfig { name: "console-1".into() })),
-        ("console-2", MessengerConfig::Console(ConsoleConfig { name: "console-2".into() })),
-        ("console-3", MessengerConfig::Console(ConsoleConfig { name: "console-3".into() })),
+        (
+            "console-1",
+            MessengerConfig::Console(ConsoleConfig {
+                name: "console-1".into(),
+            }),
+        ),
+        (
+            "console-2",
+            MessengerConfig::Console(ConsoleConfig {
+                name: "console-2".into(),
+            }),
+        ),
+        (
+            "console-3",
+            MessengerConfig::Console(ConsoleConfig {
+                name: "console-3".into(),
+            }),
+        ),
     ];
 
     // ── Initialize all messengers ─────────────────────────────────────────────
@@ -57,11 +72,13 @@ async fn main() -> anyhow::Result<()> {
 
     // ── Broadcast ─────────────────────────────────────────────────────────────
     println!("\nBroadcasting to all platforms…");
-    let results = mgr.broadcast("#general", "Hello from all platforms via chat-system!").await;
+    let results = mgr
+        .broadcast("#general", "Hello from all platforms via chat-system!")
+        .await;
     for (i, res) in results.iter().enumerate() {
         match res {
             Ok(id) => println!("  messenger[{i}] sent  message_id={id}"),
-            Err(e)  => println!("  messenger[{i}] error: {e}"),
+            Err(e) => println!("  messenger[{i}] error: {e}"),
         }
     }
 

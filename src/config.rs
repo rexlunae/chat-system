@@ -327,7 +327,10 @@ pub struct GenericMessenger {
 impl GenericMessenger {
     /// Create a new uninitialized [`GenericMessenger`] from a config.
     pub fn new(config: MessengerConfig) -> Self {
-        Self { config, inner: None }
+        Self {
+            config,
+            inner: None,
+        }
     }
 
     /// Access the underlying config.
@@ -384,7 +387,10 @@ impl Messenger for GenericMessenger {
     }
 
     fn is_connected(&self) -> bool {
-        self.inner.as_ref().map(|m| m.is_connected()).unwrap_or(false)
+        self.inner
+            .as_ref()
+            .map(|m| m.is_connected())
+            .unwrap_or(false)
     }
 
     async fn disconnect(&mut self) -> Result<()> {
@@ -482,7 +488,10 @@ pub struct GenericServer {
 impl GenericServer {
     /// Create a new [`GenericServer`] from a config.
     pub fn new(config: ServerConfig) -> Self {
-        Self { config, inner: None }
+        Self {
+            config,
+            inner: None,
+        }
     }
 
     /// Access the underlying config.
@@ -726,7 +735,9 @@ mod tests {
     async fn generic_messenger_set_profile_picture_before_init_is_ok() {
         let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
         let gm = GenericMessenger::new(cfg);
-        gm.set_profile_picture("https://example.com/avatar.png").await.unwrap();
+        gm.set_profile_picture("https://example.com/avatar.png")
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -734,7 +745,9 @@ mod tests {
         let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
         let mut gm = GenericMessenger::new(cfg);
         gm.initialize().await.unwrap();
-        gm.set_profile_picture("https://example.com/avatar.png").await.unwrap();
+        gm.set_profile_picture("https://example.com/avatar.png")
+            .await
+            .unwrap();
         gm.disconnect().await.unwrap();
     }
 
@@ -758,10 +771,13 @@ mod tests {
     async fn generic_messenger_search_messages_before_init_returns_empty() {
         let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
         let gm = GenericMessenger::new(cfg);
-        let results = gm.search_messages(SearchQuery {
-            text: "hello".into(),
-            ..Default::default()
-        }).await.unwrap();
+        let results = gm
+            .search_messages(SearchQuery {
+                text: "hello".into(),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
         assert!(results.is_empty());
     }
 
@@ -770,12 +786,15 @@ mod tests {
         let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
         let mut gm = GenericMessenger::new(cfg);
         gm.initialize().await.unwrap();
-        let results = gm.search_messages(SearchQuery {
-            text: "rust".into(),
-            channel: Some("#general".into()),
-            limit: Some(10),
-            ..Default::default()
-        }).await.unwrap();
+        let results = gm
+            .search_messages(SearchQuery {
+                text: "rust".into(),
+                channel: Some("#general".into()),
+                limit: Some(10),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
         assert!(results.is_empty());
         gm.disconnect().await.unwrap();
     }

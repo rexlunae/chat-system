@@ -239,8 +239,16 @@ fn message_with_reactions() {
         media: None,
         is_direct: false,
         reactions: Some(vec![
-            Reaction { emoji: "👍".to_string(), count: 2, user_ids: vec![] },
-            Reaction { emoji: "🎉".to_string(), count: 1, user_ids: vec!["bob".to_string()] },
+            Reaction {
+                emoji: "👍".to_string(),
+                count: 2,
+                user_ids: vec![],
+            },
+            Reaction {
+                emoji: "🎉".to_string(),
+                count: 1,
+                user_ids: vec!["bob".to_string()],
+            },
         ]),
     };
     let reactions = msg.reactions.as_ref().unwrap();
@@ -275,4 +283,3 @@ fn message_reactions_serialization_roundtrip() {
     assert_eq!(reactions[0].emoji, "❤️");
     assert_eq!(reactions[0].count, 3);
 }
-
