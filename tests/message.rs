@@ -1,4 +1,4 @@
-use chat_system::{MediaAttachment, Message, SendOptions};
+use chat_system::{MediaAttachment, Message, Reaction, SendOptions};
 
 #[test]
 fn message_creation() {
@@ -11,6 +11,7 @@ fn message_creation() {
         reply_to: None,
         media: None,
         is_direct: false,
+        reactions: None,
     };
     assert_eq!(msg.id, "123");
     assert_eq!(msg.sender, "alice");
@@ -33,6 +34,7 @@ fn message_clone() {
         reply_to: None,
         media: None,
         is_direct: false,
+        reactions: None,
     };
     let cloned = msg.clone();
     assert_eq!(msg.id, cloned.id);
@@ -52,6 +54,7 @@ fn message_serialization_roundtrip() {
         reply_to: Some("123".to_string()),
         media: None,
         is_direct: true,
+        reactions: None,
     };
     let json = serde_json::to_string(&msg).unwrap();
     let de: Message = serde_json::from_str(&json).unwrap();
@@ -72,6 +75,7 @@ fn message_defaults_for_optional_fields() {
     assert!(msg.reply_to.is_none());
     assert!(msg.media.is_none());
     assert!(!msg.is_direct);
+    assert!(msg.reactions.is_none());
 }
 
 #[test]
@@ -90,6 +94,7 @@ fn message_with_media() {
             filename: Some("file.pdf".to_string()),
         }]),
         is_direct: false,
+        reactions: None,
     };
     let media = msg.media.as_ref().unwrap();
     assert_eq!(media.len(), 1);
@@ -181,6 +186,93 @@ fn message_is_direct_flag() {
         reply_to: None,
         media: None,
         is_direct: true,
+        reactions: None,
     };
     assert!(dm.is_direct);
 }
+
+#[test]
+fn reaction_creation_and_clone() {
+    let r = Reaction {
+        emoji: "👍".to_string(),
+        count: 3,
+        user_ids: vec!["alice".to_string(), "bob".to_string(), "carol".to_string()],
+    };
+    let r2 = r.clone();
+    assert_eq!(r.emoji, r2.emoji);
+    assert_eq!(r.count, r2.count);
+    assert_eq!(r.user_ids, r2.user_ids);
+}
+
+#[test]
+fn reaction_serialization_roundtrip() {
+    let r = Reaction {
+        emoji: "❤️".to_string(),
+        count: 1,
+        user_ids: vec!["dave".to_string()],
+    };
+    let json = serde_json::to_string(&r).unwrap();
+    let de: Reaction = serde_json::from_str(&json).unwrap();
+    assert_eq!(de.emoji, r.emoji);
+    assert_eq!(de.count, r.count);
+    assert_eq!(de.user_ids, r.user_ids);
+}
+
+#[test]
+fn reaction_user_ids_default_empty() {
+    let json = r#"{"emoji":"👍","count":5}"#;
+    let r: Reaction = serde_json::from_str(json).unwrap();
+    assert_eq!(r.emoji, "👍");
+    assert_eq!(r.count, 5);
+    assert!(r.user_ids.is_empty());
+}
+
+#[test]
+fn message_with_reactions() {
+    let msg = Message {
+        id: "r1".to_string(),
+        sender: "alice".to_string(),
+        content: "Great idea!".to_string(),
+        timestamp: 5000,
+        channel: Some("#general".to_string()),
+        reply_to: None,
+        media: None,
+        is_direct: false,
+        reactions: Some(vec![
+            Reaction { emoji: "👍".to_string(), count: 2, user_ids: vec![] },
+            Reaction { emoji: "🎉".to_string(), count: 1, user_ids: vec!["bob".to_string()] },
+        ]),
+    };
+    let reactions = msg.reactions.as_ref().unwrap();
+    assert_eq!(reactions.len(), 2);
+    assert_eq!(reactions[0].emoji, "👍");
+    assert_eq!(reactions[0].count, 2);
+    assert_eq!(reactions[1].emoji, "🎉");
+    assert_eq!(reactions[1].user_ids, vec!["bob".to_string()]);
+}
+
+#[test]
+fn message_reactions_serialization_roundtrip() {
+    let msg = Message {
+        id: "r2".to_string(),
+        sender: "bob".to_string(),
+        content: "Hello".to_string(),
+        timestamp: 6000,
+        channel: None,
+        reply_to: None,
+        media: None,
+        is_direct: false,
+        reactions: Some(vec![Reaction {
+            emoji: "❤️".to_string(),
+            count: 3,
+            user_ids: vec!["alice".to_string()],
+        }]),
+    };
+    let json = serde_json::to_string(&msg).unwrap();
+    let de: Message = serde_json::from_str(&json).unwrap();
+    let reactions = de.reactions.as_ref().unwrap();
+    assert_eq!(reactions.len(), 1);
+    assert_eq!(reactions[0].emoji, "❤️");
+    assert_eq!(reactions[0].count, 3);
+}
+

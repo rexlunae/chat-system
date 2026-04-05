@@ -66,6 +66,7 @@ where
                     reply_to: None,
                     media: None,
                     is_direct: !target.starts_with('#'),
+                    reactions: None,
                 };
                 if let Ok(Some(reply)) = handler(msg).await {
                     let response = format!(
