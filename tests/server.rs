@@ -6,15 +6,15 @@ use std::sync::{Arc, Mutex};
 // ─── Mock implementation of ChatServer ───────────────────────────────────────
 
 struct MockChatServer {
-    address: String,
+    name: String,
     /// Messages delivered to the handler during `run`.
     processed: Arc<Mutex<Vec<Message>>>,
 }
 
 impl MockChatServer {
-    fn new(address: &str) -> Self {
+    fn new(name: &str) -> Self {
         Self {
-            address: address.to_string(),
+            name: name.to_string(),
             processed: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -26,6 +26,14 @@ impl MockChatServer {
 
 #[async_trait]
 impl ChatServer for MockChatServer {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn listeners(&self) -> Vec<&dyn chat_system::ChatListener> {
+        Vec::new()
+    }
+
     /// Simulates receiving a single test message and passing it to the handler.
     async fn run<F, Fut>(&mut self, handler: F) -> Result<()>
     where
@@ -48,10 +56,6 @@ impl ChatServer for MockChatServer {
         Ok(())
     }
 
-    fn address(&self) -> &str {
-        &self.address
-    }
-
     async fn shutdown(&mut self) -> Result<()> {
         Ok(())
     }
@@ -60,26 +64,26 @@ impl ChatServer for MockChatServer {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn server_address() {
-    let server = MockChatServer::new("127.0.0.1:8080");
-    assert_eq!(server.address(), "127.0.0.1:8080");
+async fn server_name() {
+    let server = MockChatServer::new("test-server");
+    assert_eq!(server.name(), "test-server");
 }
 
 #[tokio::test]
-async fn server_address_arbitrary_string() {
-    let server = MockChatServer::new("ws://example.com:9000/chat");
-    assert_eq!(server.address(), "ws://example.com:9000/chat");
+async fn server_listeners_empty() {
+    let server = MockChatServer::new("test-server");
+    assert!(server.listeners().is_empty());
 }
 
 #[tokio::test]
 async fn server_shutdown_is_ok() {
-    let mut server = MockChatServer::new("127.0.0.1:0");
+    let mut server = MockChatServer::new("test-server");
     server.shutdown().await.unwrap();
 }
 
 #[tokio::test]
 async fn server_run_invokes_handler_with_message() {
-    let mut server = MockChatServer::new("127.0.0.1:0");
+    let mut server = MockChatServer::new("test-server");
     let received: Arc<Mutex<Vec<Message>>> = Arc::new(Mutex::new(Vec::new()));
     let received_clone = received.clone();
 
@@ -104,7 +108,7 @@ async fn server_run_invokes_handler_with_message() {
 
 #[tokio::test]
 async fn server_run_handler_can_return_reply() {
-    let mut server = MockChatServer::new("127.0.0.1:0");
+    let mut server = MockChatServer::new("test-server");
     let reply_seen: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
     let reply_clone = reply_seen.clone();
 
@@ -126,7 +130,7 @@ async fn server_run_handler_can_return_reply() {
 
 #[tokio::test]
 async fn server_run_records_processed_message_internally() {
-    let mut server = MockChatServer::new("127.0.0.1:0");
+    let mut server = MockChatServer::new("test-server");
 
     server.run(|_msg| async move { Ok(None) }).await.unwrap();
 
@@ -137,7 +141,7 @@ async fn server_run_records_processed_message_internally() {
 
 #[tokio::test]
 async fn server_run_handler_error_propagates() {
-    let mut server = MockChatServer::new("127.0.0.1:0");
+    let mut server = MockChatServer::new("test-server");
 
     let result = server
         .run(|_msg| async move { Err(anyhow::anyhow!("handler error")) })
@@ -149,7 +153,7 @@ async fn server_run_handler_error_propagates() {
 
 #[tokio::test]
 async fn server_run_followed_by_shutdown() {
-    let mut server = MockChatServer::new("127.0.0.1:0");
+    let mut server = MockChatServer::new("test-server");
 
     server.run(|_msg| async move { Ok(None) }).await.unwrap();
 

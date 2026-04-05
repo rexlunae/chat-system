@@ -8,7 +8,7 @@
 //!   cargo run --example generic_config_client
 
 use chat_system::{
-    config::{ConsoleConfig, IrcConfig, IrcServerConfig, MessengerConfig, ServerConfig},
+    config::{ConsoleConfig, IrcConfig, IrcListenerConfig, ListenerConfig, MessengerConfig, ServerConfig},
     GenericMessenger, GenericServer, Messenger, MessengerManager, PresenceStatus, SearchQuery,
 };
 
@@ -142,13 +142,15 @@ async fn main() -> anyhow::Result<()> {
 
     // ── 9. Server config round-trip ───────────────────────────────────────────
     println!("\n--- Server config round-trip ---");
-    let server_cfg = ServerConfig::Irc(IrcServerConfig {
+    let server_cfg = ServerConfig {
         name: "irc-server".into(),
-        binds: vec!["127.0.0.1:16667".into()],
-    });
+        listeners: vec![ListenerConfig::Irc(IrcListenerConfig {
+            address: "127.0.0.1:16667".into(),
+        })],
+    };
     let server_json = serde_json::to_string_pretty(&server_cfg)?;
     println!("Server config:\n{server_json}");
-    println!("bind addresses: {:?}", server_cfg.bind_addresses());
+    println!("listener count: {}", server_cfg.listeners.len());
 
     let _server = GenericServer::new(server_cfg);
     // Uncomment to actually run the server:

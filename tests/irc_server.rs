@@ -1,5 +1,6 @@
-use chat_system::servers::IrcServer;
-use chat_system::{ChatServer, IrcListener};
+use chat_system::server::Server;
+use chat_system::servers::IrcListener;
+use chat_system::{ChatListener, ChatServer};
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
@@ -38,50 +39,24 @@ async fn send_privmsg(addr: &str, nick: &str, msg: &str) {
 // ── tests ─────────────────────────────────────────────────────────────────────
 
 #[tokio::test]
-async fn irc_server_single_listener_receives_message() {
-    let received: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
-    let received_clone = received.clone();
-
-    let mut server = IrcServer::new("127.0.0.1:0");
-
-    // Run the server in the background; it exits when all listeners shut down.
-    let run_handle = tokio::spawn(async move {
-        server
-            .run(move |msg| {
-                let recv = received_clone.clone();
-                async move {
-                    recv.lock().unwrap().push(msg.content.clone());
-                    Ok(None)
-                }
-            })
-            .await
-            .unwrap();
-    });
-
-    // Give the server a moment to bind.
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-
-    // We need the bound address.  Start a helper server on port 0 to find a
-    // free port, then create a fresh IrcServer bound to that port so we know
-    // the address up-front.
-    drop(run_handle);
-
-    // ── simpler approach: bind to a known-free port via std ──────────────────
+async fn server_single_listener_receives_message() {
     let std_listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = std_listener.local_addr().unwrap().port();
     drop(std_listener);
 
-    let received2: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
-    let received2_clone = received2.clone();
-
     let addr = format!("127.0.0.1:{port}");
     let addr_clone = addr.clone();
 
-    let mut server2 = IrcServer::new(addr.clone());
+    let received: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let received_clone = received.clone();
+
+    let mut server = Server::new("test-server");
+    server.add_listener(Box::new(IrcListener::new(addr)));
+
     let server_handle = tokio::spawn(async move {
-        server2
+        server
             .run(move |msg| {
-                let recv = received2_clone.clone();
+                let recv = received_clone.clone();
                 async move {
                     recv.lock().unwrap().push(msg.content.clone());
                     Ok(None)
@@ -95,17 +70,15 @@ async fn irc_server_single_listener_receives_message() {
     send_privmsg(&addr_clone, "testbot", "hello single").await;
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
-    // Shut the server down by dropping the handle and aborting the task.
     server_handle.abort();
     let _ = server_handle.await;
 
-    let msgs = received2.lock().unwrap().clone();
+    let msgs = received.lock().unwrap().clone();
     assert_eq!(msgs, vec!["hello single"]);
 }
 
 #[tokio::test]
-async fn irc_server_multiple_listeners_all_deliver_messages() {
-    // Grab two free ports.
+async fn server_multiple_listeners_all_deliver_messages() {
     let l1 = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port1 = l1.local_addr().unwrap().port();
     let l2 = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -119,8 +92,9 @@ async fn irc_server_multiple_listeners_all_deliver_messages() {
     let received: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     let received_clone = received.clone();
 
-    let mut server = IrcServer::new(addr1.clone());
-    server.add_listener(IrcListener::new(addr2.clone()));
+    let mut server = Server::new("test-server");
+    server.add_listener(Box::new(IrcListener::new(addr1.clone())));
+    server.add_listener(Box::new(IrcListener::new(addr2.clone())));
 
     let server_handle = tokio::spawn(async move {
         server
@@ -151,64 +125,65 @@ async fn irc_server_multiple_listeners_all_deliver_messages() {
 }
 
 #[tokio::test]
-async fn irc_server_addresses_returns_all_listener_addresses() {
-    let l1 = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let port1 = l1.local_addr().unwrap().port();
-    let l2 = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let port2 = l2.local_addr().unwrap().port();
-    drop(l1);
-    drop(l2);
+async fn server_listeners_returns_all_attached_listeners() {
+    let mut server = Server::new("test-server");
+    server.add_listener(Box::new(IrcListener::new("127.0.0.1:6667")));
+    server.add_listener(Box::new(IrcListener::new("127.0.0.1:6697")));
 
-    let addr1 = format!("127.0.0.1:{port1}");
-    let addr2 = format!("127.0.0.1:{port2}");
-
-    let mut server = IrcServer::new(addr1.clone());
-    server.add_listener(IrcListener::new(addr2.clone()));
-
-    assert_eq!(server.address(), addr1);
-    let addrs = server.addresses();
-    assert_eq!(addrs.len(), 2);
-    assert!(addrs.contains(&addr1.as_str()));
-    assert!(addrs.contains(&addr2.as_str()));
+    assert_eq!(server.name(), "test-server");
+    let listeners = server.listeners();
+    assert_eq!(listeners.len(), 2);
+    assert_eq!(listeners[0].address(), "127.0.0.1:6667");
+    assert_eq!(listeners[0].protocol(), "irc");
+    assert_eq!(listeners[1].address(), "127.0.0.1:6697");
+    assert_eq!(listeners[1].protocol(), "irc");
 }
 
 #[tokio::test]
-async fn irc_server_new_single_address() {
-    let server = IrcServer::new("127.0.0.1:6667");
-    assert_eq!(server.address(), "127.0.0.1:6667");
-    assert_eq!(server.addresses(), vec!["127.0.0.1:6667"]);
+async fn irc_listener_protocol_is_irc() {
+    let listener = IrcListener::new("127.0.0.1:6667");
+    assert_eq!(listener.protocol(), "irc");
+    assert_eq!(listener.address(), "127.0.0.1:6667");
 }
 
 #[tokio::test]
-async fn generic_server_config_extra_binds_roundtrip() {
-    use chat_system::config::{IrcServerConfig, ServerConfig};
-    use chat_system::ChatServer;
+async fn server_empty_has_no_listeners() {
+    let server = Server::new("empty-server");
+    assert_eq!(server.name(), "empty-server");
+    assert!(server.listeners().is_empty());
+}
 
-    let cfg = ServerConfig::Irc(IrcServerConfig {
+#[tokio::test]
+async fn generic_server_config_roundtrip() {
+    use chat_system::config::{IrcListenerConfig, ListenerConfig, ServerConfig};
+
+    let cfg = ServerConfig {
         name: "srv".into(),
-        binds: vec![
-            "127.0.0.1:6667".into(),
-            "127.0.0.1:6668".into(),
-            "127.0.0.1:6669".into(),
+        listeners: vec![
+            ListenerConfig::Irc(IrcListenerConfig {
+                address: "127.0.0.1:6667".into(),
+            }),
+            ListenerConfig::Irc(IrcListenerConfig {
+                address: "127.0.0.1:6668".into(),
+            }),
+            ListenerConfig::Irc(IrcListenerConfig {
+                address: "127.0.0.1:6669".into(),
+            }),
         ],
-    });
+    };
 
-    assert_eq!(
-        cfg.bind_addresses(),
-        vec!["127.0.0.1:6667", "127.0.0.1:6668", "127.0.0.1:6669"]
-    );
+    assert_eq!(cfg.name(), "srv");
+    assert_eq!(cfg.listeners.len(), 3);
+    assert_eq!(cfg.listeners[0].address(), "127.0.0.1:6667");
+    assert_eq!(cfg.listeners[1].address(), "127.0.0.1:6668");
+    assert_eq!(cfg.listeners[2].address(), "127.0.0.1:6669");
 
     let json = serde_json::to_string(&cfg).unwrap();
     let decoded: ServerConfig = serde_json::from_str(&json).unwrap();
-    assert_eq!(
-        decoded.bind_addresses(),
-        vec!["127.0.0.1:6667", "127.0.0.1:6668", "127.0.0.1:6669"]
-    );
+    assert_eq!(decoded.name(), "srv");
+    assert_eq!(decoded.listeners.len(), 3);
 
     use chat_system::GenericServer;
     let gs = GenericServer::new(decoded);
-    assert_eq!(
-        gs.addresses(),
-        vec!["127.0.0.1:6667", "127.0.0.1:6668", "127.0.0.1:6669"]
-    );
+    assert_eq!(gs.name(), "srv");
 }
