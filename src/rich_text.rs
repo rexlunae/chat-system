@@ -276,12 +276,12 @@ impl RichText {
 
     /// Convert to Telegram HTML.
     pub fn to_telegram_html(&self) -> String {
-        crate::markdown::markdown_to_telegram_html(&self.to_markdown())
+        crate::markdown::markdown_to_telegram_html(self.to_markdown())
     }
 
     /// Convert to Slack mrkdwn.
     pub fn to_slack_mrkdwn(&self) -> String {
-        crate::markdown::markdown_to_slack(&self.to_markdown())
+        crate::markdown::markdown_to_slack(self.to_markdown())
     }
 
     /// Convert to Matrix HTML.
