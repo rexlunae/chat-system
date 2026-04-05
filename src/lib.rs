@@ -25,14 +25,17 @@
 //! ```
 
 pub mod channel_type;
+pub mod config;
 pub mod markdown;
 pub mod message;
 pub mod messenger;
 pub mod messengers;
 pub mod rich_text;
 pub mod server;
+pub mod servers;
 
 pub use channel_type::{ChannelCapabilities, ChannelDescriptor, ChannelType, InboundMode};
+pub use config::{GenericMessenger, GenericServer, MessengerConfig, ServerConfig};
 pub use markdown::{chunk_markdown_html, markdown_to_slack, markdown_to_telegram_html};
 pub use message::{MediaAttachment, Message, SendOptions};
 pub use messenger::{Messenger, MessengerManager};
