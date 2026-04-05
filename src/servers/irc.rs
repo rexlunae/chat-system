@@ -4,6 +4,7 @@ use crate::message::Message;
 use crate::server::ChatServer;
 use anyhow::Result;
 use async_trait::async_trait;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
