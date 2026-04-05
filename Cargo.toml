@@ -37,6 +37,7 @@ wa-rs-core = { version = "0.2", optional = true }
 wa-rs-sqlite-storage = { version = "0.2", optional = true }
 wa-rs-tokio-transport = { version = "0.2", optional = true }
 wa-rs-ureq-http = { version = "0.2", optional = true }
+typetag = "0.2.21"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }

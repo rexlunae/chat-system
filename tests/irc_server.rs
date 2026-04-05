@@ -155,18 +155,18 @@ async fn server_empty_has_no_listeners() {
 
 #[tokio::test]
 async fn generic_server_config_roundtrip() {
-    use chat_system::config::{IrcListenerConfig, ListenerConfig, ServerConfig};
+    use chat_system::config::{IrcListenerConfig, ServerConfig};
 
     let cfg = ServerConfig {
         name: "srv".into(),
         listeners: vec![
-            ListenerConfig::Irc(IrcListenerConfig {
+            Box::new(IrcListenerConfig {
                 address: "127.0.0.1:6667".into(),
             }),
-            ListenerConfig::Irc(IrcListenerConfig {
+            Box::new(IrcListenerConfig {
                 address: "127.0.0.1:6668".into(),
             }),
-            ListenerConfig::Irc(IrcListenerConfig {
+            Box::new(IrcListenerConfig {
                 address: "127.0.0.1:6669".into(),
             }),
         ],
