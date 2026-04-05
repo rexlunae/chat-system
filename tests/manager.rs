@@ -33,10 +33,9 @@ async fn manager_default_is_empty() {
 
 #[tokio::test]
 async fn manager_add_increases_count() {
-    let mut mgr = MessengerManager::new();
-    mgr = mgr.add(make_console("a"));
+    let mgr = MessengerManager::new().add(make_console("a"));
     assert_eq!(mgr.messengers().len(), 1);
-    mgr = mgr.add(make_console("b"));
+    let mgr = mgr.add(make_console("b"));
     assert_eq!(mgr.messengers().len(), 2);
 }
 
@@ -51,24 +50,22 @@ async fn manager_add_three_messengers() {
 
 #[tokio::test]
 async fn manager_get_by_name_found() {
-    let mut mgr = MessengerManager::new();
-    mgr = mgr.add(make_console("alpha"));
-    mgr = mgr.add(make_console("beta"));
+    let mgr = MessengerManager::new()
+        .add(make_console("alpha"))
+        .add(make_console("beta"));
     assert!(mgr.get("alpha").is_some());
     assert!(mgr.get("beta").is_some());
 }
 
 #[tokio::test]
 async fn manager_get_by_name_not_found() {
-    let mut mgr = MessengerManager::new();
-    mgr = mgr.add(make_console("alpha"));
+    let mgr = MessengerManager::new().add(make_console("alpha"));
     assert!(mgr.get("gamma").is_none());
 }
 
 #[tokio::test]
 async fn manager_get_returns_correct_messenger() {
-    let mut mgr = MessengerManager::new();
-    mgr = mgr.add(make_console("my-console"));
+    let mgr = MessengerManager::new().add(make_console("my-console"));
     let m = mgr.get("my-console").unwrap();
     assert_eq!(m.name(), "my-console");
     assert_eq!(m.messenger_type(), "console");
@@ -107,16 +104,13 @@ async fn manager_receive_all_empty() {
 
 #[tokio::test]
 async fn manager_receive_all_collects_from_all_messengers() {
-    let mut mgr = MessengerManager::new();
-
     let mut m1 = make_console("a");
     m1.enqueue(make_message("1", "alice", "msg1"));
     let mut m2 = make_console("b");
     m2.enqueue(make_message("2", "bob", "msg2"));
     m2.enqueue(make_message("3", "bob", "msg3"));
 
-    mgr = mgr.add(m1);
-    mgr = mgr.add(m2);
+    let mut mgr = MessengerManager::new().add(m1).add(m2);
     mgr.initialize_all().await.unwrap();
 
     let msgs = mgr.receive_all().await.unwrap();
