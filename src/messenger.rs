@@ -34,7 +34,8 @@ pub enum PresenceStatus {
 /// forwarded over APIs.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SearchQuery {
-    /// Free-text search string.
+    /// Free-text search string (empty string matches all messages).
+    #[serde(default)]
     pub text: String,
     /// Restrict the search to a particular channel or conversation ID.
     #[serde(default)]
