@@ -23,9 +23,9 @@ use tokio::net::TcpListener;
 /// use chat_system::servers::IrcListener;
 ///
 /// # #[tokio::main] async fn main() -> anyhow::Result<()> {
-/// let mut server = Server::new("my-irc");
-/// server.add_listener(Box::new(IrcListener::new("0.0.0.0:6667")));
-/// server.add_listener(Box::new(IrcListener::new("0.0.0.0:6697")));
+/// let mut server = Server::new("my-irc")
+///     .add_listener(IrcListener::new("0.0.0.0:6667"))
+///     .add_listener(IrcListener::new("0.0.0.0:6697"));
 /// // server.run(handler).await?;
 /// # Ok(()) }
 /// ```

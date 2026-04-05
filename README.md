@@ -288,9 +288,9 @@ use chat_system::ChatServer;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let mut server = Server::new("my-server");
-    server.add_listener(Box::new(IrcListener::new("0.0.0.0:6667")));
-    server.add_listener(Box::new(IrcListener::new("0.0.0.0:6697")));
+    let mut server = Server::new("my-server")
+        .add_listener(IrcListener::new("0.0.0.0:6667"))
+        .add_listener(IrcListener::new("0.0.0.0:6697"));
 
     server.run(|msg| async move {
         println!("{}: {}", msg.sender, msg.content);

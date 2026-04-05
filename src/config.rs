@@ -581,7 +581,7 @@ impl GenericServer {
     fn build_inner(&self) -> crate::server::Server {
         let mut server = crate::server::Server::new(&self.config.name);
         for lc in &self.config.listeners {
-            server.add_listener(lc.build());
+            server = server.add_boxed_listener(lc.build());
         }
         server
     }

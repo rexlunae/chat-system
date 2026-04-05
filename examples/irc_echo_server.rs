@@ -21,8 +21,8 @@ use chat_system::ChatServer;
 async fn main() -> anyhow::Result<()> {
     let addr = "127.0.0.1:6667";
 
-    let mut server = Server::new("echo-server");
-    server.add_listener(Box::new(IrcListener::new(addr)));
+    let mut server = Server::new("echo-server")
+        .add_listener(IrcListener::new(addr));
 
     println!("IRC echo server listening on {addr}");
     println!("Press Ctrl+C to stop.\n");
