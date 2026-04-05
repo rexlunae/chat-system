@@ -12,17 +12,17 @@ pub struct SignalCliMessenger {
 }
 
 impl SignalCliMessenger {
-    pub fn new(name: String, phone_number: String) -> Self {
+    pub fn new(name: impl Into<String>, phone_number: impl Into<String>) -> Self {
         Self {
-            name,
-            phone_number,
+            name: name.into(),
+            phone_number: phone_number.into(),
             signal_cli_path: "signal-cli".to_string(),
             connected: false,
         }
     }
 
-    pub fn with_cli_path(mut self, path: String) -> Self {
-        self.signal_cli_path = path;
+    pub fn with_cli_path(mut self, path: impl Into<String>) -> Self {
+        self.signal_cli_path = path.into();
         self
     }
 }

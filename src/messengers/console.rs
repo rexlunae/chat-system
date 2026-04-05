@@ -11,9 +11,9 @@ pub struct ConsoleMessenger {
 }
 
 impl ConsoleMessenger {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: impl Into<String>) -> Self {
         Self {
-            name,
+            name: name.into(),
             connected: false,
             messages: Vec::new(),
         }

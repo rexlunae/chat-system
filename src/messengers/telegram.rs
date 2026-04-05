@@ -14,10 +14,10 @@ pub struct TelegramMessenger {
 }
 
 impl TelegramMessenger {
-    pub fn new(name: String, token: String) -> Self {
+    pub fn new(name: impl Into<String>, token: impl Into<String>) -> Self {
         Self {
-            name,
-            token,
+            name: name.into(),
+            token: token.into(),
             client: Client::new(),
             connected: false,
         }

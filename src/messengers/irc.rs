@@ -32,12 +32,12 @@ pub struct IrcMessenger {
 }
 
 impl IrcMessenger {
-    pub fn new(name: String, server: String, port: u16, nick: String) -> Self {
+    pub fn new(name: impl Into<String>, server: impl Into<String>, port: u16, nick: impl Into<String>) -> Self {
         Self {
-            name,
-            server,
+            name: name.into(),
+            server: server.into(),
             port,
-            nick,
+            nick: nick.into(),
             channels: Vec::new(),
             use_tls: false,
             connection: None,
@@ -45,8 +45,8 @@ impl IrcMessenger {
         }
     }
 
-    pub fn with_channels(mut self, channels: Vec<String>) -> Self {
-        self.channels = channels;
+    pub fn with_channels(mut self, channels: Vec<impl Into<String>>) -> Self {
+        self.channels = channels.into_iter().map(|c| c.into()).collect();
         self
     }
 

@@ -12,12 +12,12 @@
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
 //!     let mut client = IrcMessenger::new(
-//!         "my-bot".into(),
-//!         "irc.libera.chat".into(),
+//!         "my-bot",
+//!         "irc.libera.chat",
 //!         6697,
-//!         "chat-bot".into(),
+//!         "chat-bot",
 //!     )
-//!     .with_channels(vec!["#rust".into()]);
+//!     .with_channels(vec!["#rust"]);
 //!     client.initialize().await?;
 //!     client.send_message("#rust", "Hello, IRC!").await?;
 //!     Ok(())

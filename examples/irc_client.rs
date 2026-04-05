@@ -6,9 +6,9 @@ use chat_system::Messenger;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let nick = std::env::var("IRC_NICK").unwrap_or_else(|_| "chat-system-bot".into());
-    let mut client = IrcMessenger::new("irc-example".into(), "irc.libera.chat".into(), 6667, nick)
+    let mut client = IrcMessenger::new("irc-example", "irc.libera.chat", 6667, nick)
         .with_tls(false)
-        .with_channels(vec!["#rust-chat-test".into()]);
+        .with_channels(vec!["#rust-chat-test"]);
 
     println!("Connecting to IRC...");
     client.initialize().await?;

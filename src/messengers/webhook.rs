@@ -14,10 +14,10 @@ pub struct WebhookMessenger {
 }
 
 impl WebhookMessenger {
-    pub fn new(name: String, url: String) -> Self {
+    pub fn new(name: impl Into<String>, url: impl Into<String>) -> Self {
         Self {
-            name,
-            url,
+            name: name.into(),
+            url: url.into(),
             client: Client::new(),
             connected: false,
         }

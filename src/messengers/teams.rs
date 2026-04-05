@@ -14,10 +14,10 @@ pub struct TeamsMessenger {
 }
 
 impl TeamsMessenger {
-    pub fn new(name: String, webhook_url: String) -> Self {
+    pub fn new(name: impl Into<String>, webhook_url: impl Into<String>) -> Self {
         Self {
-            name,
-            webhook_url,
+            name: name.into(),
+            webhook_url: webhook_url.into(),
             client: Client::new(),
             connected: false,
         }

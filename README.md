@@ -34,9 +34,9 @@ use chat_system::Messenger;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let mut bot = IrcMessenger::new("bot".into(), "irc.libera.chat".into(), 6667, "mybot".into())
+    let mut bot = IrcMessenger::new("bot", "irc.libera.chat", 6667, "mybot")
         .with_tls(false)
-        .with_channels(vec!["#rust".into()]);
+        .with_channels(vec!["#rust"]);
     bot.initialize().await?;
     bot.send_message("#rust", "Hello from chat-system!").await?;
     let msgs = bot.receive_messages().await?;
@@ -55,9 +55,9 @@ use chat_system::Messenger;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Encrypted IRC with TLS on port 6697 (standard IRC+TLS port)
-    let mut bot = IrcMessenger::new("bot".into(), "irc.libera.chat".into(), 6697, "mybot".into())
+    let mut bot = IrcMessenger::new("bot", "irc.libera.chat", 6697, "mybot")
         .with_tls(true)  // Enable TLS encryption
-        .with_channels(vec!["#rust".into()]);
+        .with_channels(vec!["#rust"]);
 
     bot.initialize().await?;
     bot.send_message("#rust", "Secure message via IRC+TLS!").await?;
@@ -77,8 +77,8 @@ use chat_system::{Messenger, MessengerManager};
 use chat_system::messengers::{IrcMessenger, TelegramMessenger};
 
 let mut mgr = MessengerManager::new();
-mgr.add(Box::new(IrcMessenger::new("irc".into(), "irc.libera.chat".into(), 6667, "bot".into())));
-mgr.add(Box::new(TelegramMessenger::new("tg".into(), std::env::var("TELEGRAM_TOKEN")?)));
+mgr.add(Box::new(IrcMessenger::new("irc", "irc.libera.chat", 6667, "bot")));
+mgr.add(Box::new(TelegramMessenger::new("tg", std::env::var("TELEGRAM_TOKEN")?)));
 mgr.initialize_all().await?;
 
 loop {
@@ -164,11 +164,11 @@ The IRC messenger supports both unencrypted and encrypted (TLS/SSL) connections 
 use chat_system::messengers::IrcMessenger;
 
 // Unencrypted
-let mut messenger = IrcMessenger::new("name".into(), "irc.server.com".into(), 6667, "nick".into())
+let mut messenger = IrcMessenger::new("name", "irc.server.com", 6667, "nick")
     .with_tls(false);
 
 // Encrypted with TLS
-let mut messenger = IrcMessenger::new("name".into(), "irc.server.com".into(), 6697, "nick".into())
+let mut messenger = IrcMessenger::new("name", "irc.server.com", 6697, "nick")
     .with_tls(true);
 ```
 

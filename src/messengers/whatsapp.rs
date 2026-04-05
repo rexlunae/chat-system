@@ -38,10 +38,10 @@ impl WhatsAppMessenger {
     ///
     /// * `name` — logical name used by [`MessengerManager`](crate::MessengerManager).
     /// * `db_path` — path to the SQLite session database (e.g. `"whatsapp.db"`).
-    pub fn new(name: String, db_path: String) -> Self {
+    pub fn new(name: impl Into<String>, db_path: impl Into<String>) -> Self {
         Self {
-            name,
-            db_path,
+            name: name.into(),
+            db_path: db_path.into(),
             client: None,
             task_handle: None,
             connected: false,
