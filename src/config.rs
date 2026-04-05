@@ -39,7 +39,7 @@
 //! ```
 
 use crate::message::{Message, SendOptions};
-use crate::messenger::Messenger;
+use crate::messenger::{Messenger, PresenceStatus};
 use crate::server::ChatServer;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -401,6 +401,14 @@ impl Messenger for GenericMessenger {
             Ok(())
         }
     }
+
+    async fn set_status(&self, status: PresenceStatus) -> Result<()> {
+        if let Some(inner) = &self.inner {
+            inner.set_status(status).await
+        } else {
+            Ok(())
+        }
+    }
 }
 
 // ── GenericServer ──────────────────────────────────────────────────────────────
@@ -535,5 +543,84 @@ mod tests {
         });
         let gs = GenericServer::new(cfg);
         assert_eq!(gs.address(), "127.0.0.1:7777");
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_set_typing_before_init_is_ok() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let gm = GenericMessenger::new(cfg);
+        // Should be a no-op (not initialized yet), not an error.
+        gm.set_typing("#general", true).await.unwrap();
+        gm.set_typing("#general", false).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_set_typing_after_init_is_ok() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let mut gm = GenericMessenger::new(cfg);
+        gm.initialize().await.unwrap();
+        gm.set_typing("#general", true).await.unwrap();
+        gm.set_typing("#general", false).await.unwrap();
+        gm.disconnect().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_set_status_before_init_is_ok() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let gm = GenericMessenger::new(cfg);
+        gm.set_status(PresenceStatus::Online).await.unwrap();
+        gm.set_status(PresenceStatus::Away).await.unwrap();
+        gm.set_status(PresenceStatus::Busy).await.unwrap();
+        gm.set_status(PresenceStatus::Invisible).await.unwrap();
+        gm.set_status(PresenceStatus::Offline).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_set_status_after_init_is_ok() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let mut gm = GenericMessenger::new(cfg);
+        gm.initialize().await.unwrap();
+        gm.set_status(PresenceStatus::Online).await.unwrap();
+        gm.set_status(PresenceStatus::Away).await.unwrap();
+        gm.disconnect().await.unwrap();
+    }
+
+    #[test]
+    fn presence_status_serde_roundtrip() {
+        for status in [
+            PresenceStatus::Online,
+            PresenceStatus::Away,
+            PresenceStatus::Busy,
+            PresenceStatus::Invisible,
+            PresenceStatus::Offline,
+        ] {
+            let json = serde_json::to_string(&status).unwrap();
+            let decoded: PresenceStatus = serde_json::from_str(&json).unwrap();
+            assert_eq!(decoded, status);
+        }
+    }
+
+    #[test]
+    fn presence_status_json_values() {
+        assert_eq!(
+            serde_json::to_string(&PresenceStatus::Online).unwrap(),
+            r#""online""#
+        );
+        assert_eq!(
+            serde_json::to_string(&PresenceStatus::Away).unwrap(),
+            r#""away""#
+        );
+        assert_eq!(
+            serde_json::to_string(&PresenceStatus::Busy).unwrap(),
+            r#""busy""#
+        );
+        assert_eq!(
+            serde_json::to_string(&PresenceStatus::Invisible).unwrap(),
+            r#""invisible""#
+        );
+        assert_eq!(
+            serde_json::to_string(&PresenceStatus::Offline).unwrap(),
+            r#""offline""#
+        );
     }
 }
