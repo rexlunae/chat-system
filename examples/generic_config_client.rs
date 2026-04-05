@@ -131,7 +131,7 @@ async fn main() -> anyhow::Result<()> {
         let mut gm = GenericMessenger::new(cfg);
         gm.initialize().await?;
         println!("  added messenger #{i}: {name}");
-        mgr.add(Box::new(gm));
+        mgr = mgr.add(gm);
     }
     mgr.broadcast("world", "broadcast message").await;
     println!(

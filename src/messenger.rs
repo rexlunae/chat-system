@@ -151,8 +151,14 @@ impl MessengerManager {
         }
     }
 
-    pub fn add(&mut self, messenger: Box<dyn Messenger>) {
+    pub fn add(mut self, messenger: impl Messenger + 'static) -> Self {
+        self.messengers.push(Box::new(messenger));
+        self
+    }
+
+    pub fn add_boxed(mut self, messenger: Box<dyn Messenger>) -> Self {
         self.messengers.push(messenger);
+        self
     }
 
     pub async fn initialize_all(&mut self) -> Result<()> {
