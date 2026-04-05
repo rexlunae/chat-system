@@ -2,6 +2,8 @@
 
 A multi-protocol async chat crate for Rust. Provides a **single unified `Messenger` trait** for IRC, Matrix, Discord, Telegram, Slack, Signal, WhatsApp, Microsoft Teams, Google Chat, iMessage, Webhook, and Console — with full rich-text support for every platform's native format.
 
+The primary way to use this crate is through the **generic interface**: `MessengerConfig` is a serde-tagged enum whose `protocol` field selects the backend at runtime, so the protocol is just a field in your config file rather than a compile-time choice.
+
 ---
 
 ## Features
@@ -24,67 +26,184 @@ chat-system = "0.1"
 tokio = { version = "1", features = ["full"] }
 ```
 
-### IRC
+### Generic interface (recommended)
 
-#### Standard Connection (Unencrypted)
+`MessengerConfig` deserializes from any serde-compatible source.  The `protocol` field picks the backend; everything else is the same [`Messenger`] trait regardless of platform.
 
 ```rust
-use chat_system::messengers::IrcMessenger;
-use chat_system::Messenger;
+use chat_system::{GenericMessenger, Messenger, MessengerConfig, PresenceStatus};
+use chat_system::config::IrcConfig;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let mut bot = IrcMessenger::new("bot", "irc.libera.chat", 6667, "mybot")
-        .with_tls(false)
-        .with_channels(vec!["#rust"]);
-    bot.initialize().await?;
-    bot.send_message("#rust", "Hello from chat-system!").await?;
-    let msgs = bot.receive_messages().await?;
-    for m in msgs { println!("{}: {}", m.sender, m.content); }
-    bot.disconnect().await?;
-    Ok(())
-}
-```
+    // Build the config programmatically or load it from a file (see below).
+    let config = MessengerConfig::Irc(IrcConfig {
+        name: "my-bot".into(),
+        server: "irc.libera.chat".into(),
+        port: 6697,
+        nick: "my-bot".into(),
+        channels: vec!["#rust".into()],
+        tls: true,
+    });
 
-#### Encrypted Connection (TLS/SSL)
+    // GenericMessenger is a drop-in Messenger — swap the config to change protocol.
+    let mut client = GenericMessenger::new(config);
+    client.initialize().await?;
 
-```rust
-use chat_system::messengers::IrcMessenger;
-use chat_system::Messenger;
+    // Presence + text status (no-op on platforms that don't support them)
+    client.set_status(PresenceStatus::Online).await?;
+    client.set_text_status("Building something in Rust 🦀").await?;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    // Encrypted IRC with TLS on port 6697 (standard IRC+TLS port)
-    let mut bot = IrcMessenger::new("bot", "irc.libera.chat", 6697, "mybot")
-        .with_tls(true)  // Enable TLS encryption
-        .with_channels(vec!["#rust"]);
+    client.send_message("#rust", "Hello from chat-system!").await?;
 
-    bot.initialize().await?;
-    bot.send_message("#rust", "Secure message via IRC+TLS!").await?;
-
-    let msgs = bot.receive_messages().await?;
-    for m in msgs { println!("{}: {}", m.sender, m.content); }
-
-    bot.disconnect().await?;
-    Ok(())
-}
-```
-
-### Multi-platform via `MessengerManager`
-
-```rust
-use chat_system::{Messenger, MessengerManager};
-use chat_system::messengers::{IrcMessenger, TelegramMessenger};
-
-let mut mgr = MessengerManager::new();
-mgr.add(Box::new(IrcMessenger::new("irc", "irc.libera.chat", 6667, "bot")));
-mgr.add(Box::new(TelegramMessenger::new("tg", std::env::var("TELEGRAM_TOKEN")?)));
-mgr.initialize_all().await?;
-
-loop {
-    for msg in mgr.receive_all().await? {
-        println!("({}) {}: {}", msg.channel.unwrap_or_default(), msg.sender, msg.content);
+    // Receive messages; reactions are available where the platform supports them
+    for msg in client.receive_messages().await? {
+        println!("[{}] {}: {}", msg.channel.as_deref().unwrap_or("?"), msg.sender, msg.content);
+        if let Some(reactions) = &msg.reactions {
+            for r in reactions { println!("  {} × {}", r.emoji, r.count); }
+        }
     }
+
+    client.disconnect().await?;
+    Ok(())
+}
+```
+
+### Loading the config from a file
+
+Because `MessengerConfig` derives `serde::Deserialize`, any serde-compatible source works.
+
+**TOML** (`config.toml`):
+
+```toml
+protocol = "discord"
+name     = "my-bot"
+token    = "Bot TOKEN_HERE"
+```
+
+```rust
+# use chat_system::{GenericMessenger, Messenger, MessengerConfig};
+let toml_str = std::fs::read_to_string("config.toml")?;
+let config: MessengerConfig = toml::from_str(&toml_str)?;
+let mut client = GenericMessenger::new(config);
+client.initialize().await?;
+```
+
+**JSON** (`config.json`):
+
+```json
+{"protocol":"telegram","name":"my-bot","token":"BOT_TOKEN"}
+```
+
+```rust
+# use chat_system::{GenericMessenger, Messenger, MessengerConfig};
+let json_str = std::fs::read_to_string("config.json")?;
+let config: MessengerConfig = serde_json::from_str(&json_str)?;
+let mut client = GenericMessenger::new(config);
+client.initialize().await?;
+```
+
+---
+
+## Multi-platform with `MessengerManager`
+
+`MessengerManager` holds multiple `GenericMessenger` instances and broadcasts / receives across all of them at once.
+
+```rust
+use chat_system::{GenericMessenger, Messenger, MessengerConfig, MessengerManager};
+use chat_system::config::{DiscordConfig, TelegramConfig};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let mut mgr = MessengerManager::new();
+    mgr.add(Box::new(GenericMessenger::new(MessengerConfig::Discord(DiscordConfig {
+        name: "discord".into(),
+        token: std::env::var("DISCORD_TOKEN")?,
+    }))));
+    mgr.add(Box::new(GenericMessenger::new(MessengerConfig::Telegram(TelegramConfig {
+        name: "telegram".into(),
+        token: std::env::var("TELEGRAM_TOKEN")?,
+    }))));
+    mgr.initialize_all().await?;
+
+    // Broadcast to every connected platform in one call
+    mgr.broadcast("#general", "Hello from all platforms!").await;
+
+    // Receive from every platform in one call
+    for msg in mgr.receive_all().await? {
+        println!("[{}] {}: {}", msg.channel.as_deref().unwrap_or("?"), msg.sender, msg.content);
+    }
+
+    mgr.disconnect_all().await?;
+    Ok(())
+}
+```
+
+---
+
+## Reactions
+
+```rust
+// Add / remove a reaction (no-op on platforms that don't support it)
+client.add_reaction("msg-id-123", "#general", "👍").await?;
+client.remove_reaction("msg-id-123", "#general", "👍").await?;
+
+// Reactions arrive on received messages where the platform populates them
+for msg in client.receive_messages().await? {
+    if let Some(reactions) = &msg.reactions {
+        for r in reactions {
+            println!("{}: {} ({})", msg.id, r.emoji, r.count);
+        }
+    }
+}
+```
+
+---
+
+## Profile pictures
+
+```rust
+// Retrieve a user's profile picture URL (None if not supported)
+if let Some(url) = client.get_profile_picture("user-id-123").await? {
+    println!("Avatar: {url}");
+}
+
+// Update the bot's own profile picture
+client.set_profile_picture("https://example.com/avatar.png").await?;
+```
+
+---
+
+## Replies
+
+```rust
+use chat_system::SendOptions;
+
+client.send_message_with_options(SendOptions {
+    recipient: "#general",
+    content: "Thanks for the message!",
+    reply_to: Some("original-message-id"),
+    ..Default::default()
+}).await?;
+```
+
+Incoming reply messages expose the parent ID via `msg.reply_to`.
+
+---
+
+## Search
+
+```rust
+use chat_system::SearchQuery;
+
+let results = client.search_messages(SearchQuery {
+    text: "deploy".into(),
+    channel: Some("#ops".into()),
+    limit: Some(20),
+    ..Default::default()
+}).await?;
+for msg in results {
+    println!("{}: {}", msg.sender, msg.content);
 }
 ```
 
@@ -119,14 +238,21 @@ let rt = RichText::from_markdown("**bold** _italic_ `code`");
 
 ## Channel Capabilities
 
+Each `ChannelType` exposes its feature set so you can decide at runtime what to offer:
+
 ```rust
 use chat_system::ChannelType;
 
-let desc = ChannelType::Slack.descriptor();
-println!("{} supports threads: {}", desc.display_name, desc.capabilities.supports_threads); // true
+let caps = ChannelType::Slack.descriptor().capabilities;
+println!("Slack supports reactions: {}", caps.supports_reactions);  // true
+println!("Slack supports threads: {}",   caps.supports_threads);    // true
 
 for ct in ChannelType::ALL {
-    println!("{:12} inbound={:?}", ct.display_name(), ct.descriptor().capabilities.inbound_mode);
+    println!("{:14} reactions={} threads={} inbound={:?}",
+        ct.display_name(),
+        ct.descriptor().capabilities.supports_reactions,
+        ct.descriptor().capabilities.supports_threads,
+        ct.descriptor().capabilities.inbound_mode);
 }
 ```
 
@@ -149,57 +275,66 @@ let chunks = chunk_markdown_html(&very_long_markdown, 4096);
 
 ---
 
-## IRC Encryption (TLS/SSL)
-
-### Overview
-
-The IRC messenger supports both unencrypted and encrypted (TLS/SSL) connections for secure communication:
-
-- **Unencrypted**: Standard IRC protocol on port `6667`
-- **Encrypted (TLS)**: IRC over TLS on port `6697` (RFC 7194 standard)
-
-### Configuration
-
-```rust
-use chat_system::messengers::IrcMessenger;
-
-// Unencrypted
-let mut messenger = IrcMessenger::new("name", "irc.server.com", 6667, "nick")
-    .with_tls(false);
-
-// Encrypted with TLS
-let mut messenger = IrcMessenger::new("name", "irc.server.com", 6697, "nick")
-    .with_tls(true);
-```
-
-### Security Features
-
-- **TLS 1.2+**: Modern encryption standards
-- **Certificate Verification**: Validates server certificates to prevent MITM attacks
-- **Rustls**: Uses pure-Rust TLS implementation for safety and portability
-
-### Server Support
-
-Most public IRC networks support encrypted connections:
-
-| Network | Host | Port | TLS |
-| --- | --- | --- | --- |
-| Libera.Chat | `irc.libera.chat` | 6667, 6697 | ✓ 6697 |
-| Freenode | `irc.freenode.net` | 6667, 6697 | ✓ 6697 |
-| EFnet | `irc.mcs.anl.gov` | 6667 | ✗ |
-| Undernet | `irc.undernet.org` | 6667, 6697 | ✓ 6697 |
-
----
-
 ## Examples
 
 ```sh
+# Generic interface (recommended starting point — no credentials needed)
+cargo run --example generic_config_client
+cargo run --example generic_multi_platform
+
+# Protocol-specific
 cargo run --example irc_client
 cargo run --example irc_echo_server
-cargo run --example irc_encrypted_client  # TLS/SSL encrypted IRC
+cargo run --example irc_encrypted_client
+cargo run --example irc_encrypted_echo_server
 cargo run --example discord_bot
 cargo run --example matrix_client --features matrix
 ```
+
+---
+
+## Protocol-specific clients
+
+When you need direct access to protocol-specific features, you can construct the concrete type directly.  The `Messenger` trait is still the primary interface:
+
+```rust
+use chat_system::messengers::IrcMessenger;
+use chat_system::Messenger;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let mut bot = IrcMessenger::new("bot", "irc.libera.chat", 6697, "mybot")
+        .with_tls(true)
+        .with_channels(vec!["#rust"]);
+    bot.initialize().await?;
+    bot.send_message("#rust", "Hello from chat-system!").await?;
+    bot.disconnect().await?;
+    Ok(())
+}
+```
+
+### IRC TLS
+
+The IRC messenger supports both plaintext and encrypted connections:
+
+| Mode | Port | Setting |
+|---|---|---|
+| Plaintext | 6667 | `.with_tls(false)` |
+| Encrypted (RFC 7194) | 6697 | `.with_tls(true)` |
+
+```rust
+// Plaintext
+let mut bot = IrcMessenger::new("name", "irc.server.com", 6667, "nick").with_tls(false);
+
+// TLS
+let mut bot = IrcMessenger::new("name", "irc.server.com", 6697, "nick").with_tls(true);
+```
+
+| Network | Host | Plaintext port | TLS port |
+|---|---|---|---|
+| Libera.Chat | `irc.libera.chat` | 6667 | 6697 |
+| Freenode | `irc.freenode.net` | 6667 | 6697 |
+| Undernet | `irc.undernet.org` | 6667 | 6697 |
 
 ---
 
