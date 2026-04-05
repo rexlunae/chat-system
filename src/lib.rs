@@ -325,4 +325,5 @@ pub use markdown::{chunk_markdown_html, markdown_to_slack, markdown_to_telegram_
 pub use message::{MediaAttachment, Message, Reaction, SendOptions};
 pub use messenger::{Messenger, MessengerManager, PresenceStatus, SearchQuery};
 pub use rich_text::{RichText, RichTextNode};
-pub use server::ChatServer;
+pub use server::{ChatListener, ChatServer};
+pub use servers::IrcListener;
