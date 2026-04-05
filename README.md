@@ -301,6 +301,35 @@ async fn main() -> anyhow::Result<()> {
 }
 ```
 
+### With TLS (feature `tls`)
+
+Enable the `tls` feature to use `TlsIrcListener` for encrypted connections:
+
+```rust
+use chat_system::server::Server;
+use chat_system::servers::{IrcListener, TlsIrcListener};
+use chat_system::ChatServer;
+use std::sync::Arc;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let tls_config = rustls::ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(certs, key)?;          // load from PEM files
+
+    // Plaintext on 6667, TLS on 6697 — same handler for both.
+    let mut server = Server::new("my-server")
+        .add_listener(IrcListener::new("0.0.0.0:6667"))
+        .add_listener(TlsIrcListener::new("0.0.0.0:6697", Arc::new(tls_config)));
+
+    server.run(|msg| async move {
+        Ok(Some(format!("echo: {}", msg.content)))
+    }).await?;
+
+    Ok(())
+}
+```
+
 ### Config-driven with `GenericServer`
 
 `ServerConfig` uses the `ListenerConfig` trait (via `typetag`), so listener configs are extensible and can be deserialized from any serde format.
@@ -347,7 +376,7 @@ cargo run --example generic_multi_platform    # MessengerManager multi-bot demo
 # IRC client + server
 cargo run --example irc_echo_server           # Server using Server + IrcListener API
 cargo run --example irc_client                # Plaintext client (connects to libera.chat)
-cargo run --example irc_encrypted_echo_server # TLS server (raw TLS, needs cert.pem/key.pem)
+cargo run --example irc_encrypted_echo_server --features tls  # TLS server (needs cert.pem/key.pem)
 cargo run --example irc_encrypted_client      # TLS client (connects to libera.chat:6697)
 
 # Other protocols

@@ -47,8 +47,14 @@ impl IrcListener {
 
 /// Handle a single IRC connection: perform the handshake, parse `PRIVMSG`
 /// lines, invoke the handler, and write replies.
-async fn handle_connection(stream: tokio::net::TcpStream, handler: MessageHandler) -> Result<()> {
-    let (reader, mut writer) = stream.into_split();
+///
+/// Generic over the stream type so it can be used with both plain TCP and TLS
+/// connections.
+pub(super) async fn handle_connection(
+    stream: impl tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    handler: MessageHandler,
+) -> Result<()> {
+    let (reader, mut writer) = tokio::io::split(stream);
     let mut lines = BufReader::new(reader).lines();
     let mut nick = String::new();
     let mut user_seen = false;
