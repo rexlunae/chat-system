@@ -68,3 +68,7 @@ path = "examples/discord_bot.rs"
 name = "matrix_client"
 path = "examples/matrix_client.rs"
 required-features = ["matrix"]
+
+[[example]]
+name = "generic_config_client"
+path = "examples/generic_config_client.rs"
