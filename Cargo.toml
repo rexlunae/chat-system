@@ -80,3 +80,7 @@ path = "examples/generic_config_client.rs"
 [[example]]
 name = "generic_multi_platform"
 path = "examples/generic_multi_platform.rs"
+
+[[example]]
+name = "generic_config_server"
+path = "examples/generic_config_server.rs"
