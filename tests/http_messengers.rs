@@ -43,6 +43,12 @@ struct MockDiscordState {
     typing_channels: Mutex<Vec<String>>,
 }
 
+#[derive(Default)]
+struct MockSlackState {
+    sent_messages: Mutex<Vec<(String, String)>>,
+    history_requests: Mutex<Vec<String>>,
+}
+
 async fn start_mock_discord_gateway_server() -> String {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -187,6 +193,92 @@ async fn wait_for_discord_messages(messenger: &DiscordMessenger) -> Vec<chat_sys
     }
 
     Vec::new()
+}
+
+async fn start_mock_slack_server() -> (String, Arc<MockSlackState>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let state = Arc::new(MockSlackState::default());
+    let state_for_server = state.clone();
+
+    tokio::spawn(async move {
+        while let Ok((mut stream, _)) = listener.accept().await {
+            let state = state_for_server.clone();
+
+            tokio::spawn(async move {
+                let mut buf = vec![0u8; 8192];
+                let bytes_read = stream.read(&mut buf).await.unwrap_or(0);
+                let request = String::from_utf8_lossy(&buf[..bytes_read]);
+                let mut lines = request.lines();
+                let request_line = lines.next().unwrap_or_default();
+                let mut parts = request_line.split_whitespace();
+                let method = parts.next().unwrap_or_default();
+                let path = parts.next().unwrap_or_default();
+                let normalized_path = path.strip_prefix("/api").unwrap_or(path);
+                let body = request.split("\r\n\r\n").nth(1).unwrap_or_default();
+
+                let (status_code, status_text, response_body) = match (method, normalized_path) {
+                    ("GET", "/auth.test") => (
+                        200,
+                        "OK",
+                        r#"{"ok":true,"user_id":"U123","team":"Test Workspace"}"#.to_string(),
+                    ),
+                    ("POST", "/chat.postMessage") => {
+                        let payload: Value = serde_json::from_str(body).unwrap_or(Value::Null);
+                        let channel = payload["channel"].as_str().unwrap_or_default().to_string();
+                        let text = payload["text"].as_str().unwrap_or_default().to_string();
+                        state.sent_messages.lock().await.push((channel, text));
+                        (200, "OK", r#"{"ok":true,"ts":"1700000001.000100"}"#.to_string())
+                    }
+                    ("GET", path) if path.starts_with("/conversations.list") => (
+                        200,
+                        "OK",
+                        r#"{"ok":true,"channels":[{"id":"C123"},{"id":"D456"}]}"#.to_string(),
+                    ),
+                    ("GET", path) if path.starts_with("/conversations.history") => {
+                        state.history_requests.lock().await.push(path.to_string());
+
+                        if path.contains("channel=C123") && !path.contains("oldest=") {
+                            (
+                                200,
+                                "OK",
+                                r#"{"ok":true,"messages":[{"ts":"1700000002.000200","user":"U456","text":"second channel message"},{"ts":"1700000001.000100","user":"U123","text":"first channel message"}]}"#.to_string(),
+                            )
+                        } else if path.contains("channel=D456") && !path.contains("oldest=") {
+                            (
+                                200,
+                                "OK",
+                                r#"{"ok":true,"messages":[{"ts":"1700000003.000300","user":"U789","text":"direct hello"}]}"#.to_string(),
+                            )
+                        } else {
+                            (200, "OK", r#"{"ok":true,"messages":[]}"#.to_string())
+                        }
+                    }
+                    _ => (404, "Not Found", r#"{"ok":false,"error":"not_found"}"#.to_string()),
+                };
+
+                let response = format!(
+                    "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    status_code,
+                    status_text,
+                    response_body.len(),
+                    response_body
+                );
+                let _ = stream.write_all(response.as_bytes()).await;
+            });
+        }
+    });
+
+    (format!("http://127.0.0.1:{}/api", addr.port()), state)
+}
+
+async fn create_initialized_slack_messenger() -> (SlackMessenger, Arc<MockSlackState>) {
+    let (api_base_url, state) = start_mock_slack_server().await;
+    let mut messenger = SlackMessenger::new("slack".to_string(), "fake-token".to_string())
+        .with_api_base_url(api_base_url);
+
+    messenger.initialize().await.unwrap();
+    (messenger, state)
 }
 
 // ─── WebhookMessenger ────────────────────────────────────────────────────────
@@ -455,7 +547,7 @@ async fn telegram_disconnect_without_init_is_ok() {
     assert!(!m.is_connected());
 }
 
-// ─── SlackMessenger (state management; API URL is hardcoded) ─────────────────
+// ─── SlackMessenger ───────────────────────────────────────────────────────────
 
 #[tokio::test]
 async fn slack_name_and_type() {
@@ -471,10 +563,41 @@ async fn slack_not_connected_before_initialize() {
 }
 
 #[tokio::test]
-async fn slack_receive_messages_returns_empty() {
-    let m = SlackMessenger::new("slack".to_string(), "fake-token".to_string());
-    let msgs = m.receive_messages().await.unwrap();
-    assert!(msgs.is_empty());
+async fn slack_initialize_sets_connected() {
+    let (messenger, _) = create_initialized_slack_messenger().await;
+    assert!(messenger.is_connected());
+}
+
+#[tokio::test]
+async fn slack_send_message_posts_to_chat_api() {
+    let (messenger, state) = create_initialized_slack_messenger().await;
+
+    let ts = messenger.send_message("C123", "hello slack").await.unwrap();
+
+    assert_eq!(ts, "1700000001.000100");
+    let sent_messages = state.sent_messages.lock().await;
+    assert_eq!(sent_messages.as_slice(), &[("C123".to_string(), "hello slack".to_string())]);
+}
+
+#[tokio::test]
+async fn slack_receive_messages_polls_history_without_duplicates() {
+    let (messenger, state) = create_initialized_slack_messenger().await;
+
+    let first_poll = messenger.receive_messages().await.unwrap();
+    assert_eq!(first_poll.len(), 3);
+    assert_eq!(first_poll[0].id, "1700000001.000100");
+    assert_eq!(first_poll[0].sender, "U123");
+    assert_eq!(first_poll[0].content, "first channel message");
+    assert_eq!(first_poll[0].channel.as_deref(), Some("C123"));
+    assert_eq!(first_poll[1].id, "1700000002.000200");
+    assert_eq!(first_poll[2].channel.as_deref(), Some("D456"));
+
+    let second_poll = messenger.receive_messages().await.unwrap();
+    assert!(second_poll.is_empty());
+
+    let history_requests = state.history_requests.lock().await;
+    assert!(history_requests.iter().any(|path| path.contains("channel=C123") && path.contains("oldest=1700000002.000200")));
+    assert!(history_requests.iter().any(|path| path.contains("channel=D456") && path.contains("oldest=1700000003.000300")));
 }
 
 #[tokio::test]
@@ -482,6 +605,15 @@ async fn slack_disconnect_without_init_is_ok() {
     let mut m = SlackMessenger::new("slack".to_string(), "fake-token".to_string());
     m.disconnect().await.unwrap();
     assert!(!m.is_connected());
+}
+
+#[tokio::test]
+async fn slack_disconnect_after_initialize_clears_connected() {
+    let (mut messenger, _) = create_initialized_slack_messenger().await;
+
+    messenger.disconnect().await.unwrap();
+
+    assert!(!messenger.is_connected());
 }
 
 // ─── IMessageMessenger (state management; macOS-only for real operations) ────
