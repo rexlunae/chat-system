@@ -39,7 +39,7 @@
 //! ```
 
 use crate::message::{Message, SendOptions};
-use crate::messenger::{Messenger, PresenceStatus};
+use crate::messenger::{Messenger, PresenceStatus, SearchQuery};
 use crate::server::ChatServer;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -409,6 +409,54 @@ impl Messenger for GenericMessenger {
             Ok(())
         }
     }
+
+    async fn add_reaction(&self, message_id: &str, channel: &str, emoji: &str) -> Result<()> {
+        if let Some(inner) = &self.inner {
+            inner.add_reaction(message_id, channel, emoji).await
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn remove_reaction(&self, message_id: &str, channel: &str, emoji: &str) -> Result<()> {
+        if let Some(inner) = &self.inner {
+            inner.remove_reaction(message_id, channel, emoji).await
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn get_profile_picture(&self, user_id: &str) -> Result<Option<String>> {
+        if let Some(inner) = &self.inner {
+            inner.get_profile_picture(user_id).await
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn set_profile_picture(&self, url: &str) -> Result<()> {
+        if let Some(inner) = &self.inner {
+            inner.set_profile_picture(url).await
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn set_text_status(&self, text: &str) -> Result<()> {
+        if let Some(inner) = &self.inner {
+            inner.set_text_status(text).await
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn search_messages(&self, query: SearchQuery) -> Result<Vec<Message>> {
+        if let Some(inner) = &self.inner {
+            inner.search_messages(query).await
+        } else {
+            Ok(Vec::new())
+        }
+    }
 }
 
 // ── GenericServer ──────────────────────────────────────────────────────────────
@@ -622,5 +670,144 @@ mod tests {
             serde_json::to_string(&PresenceStatus::Offline).unwrap(),
             r#""offline""#
         );
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_add_reaction_before_init_is_ok() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let gm = GenericMessenger::new(cfg);
+        gm.add_reaction("msg-1", "#general", "👍").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_add_reaction_after_init_is_ok() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let mut gm = GenericMessenger::new(cfg);
+        gm.initialize().await.unwrap();
+        gm.add_reaction("msg-1", "#general", "👍").await.unwrap();
+        gm.disconnect().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_remove_reaction_before_init_is_ok() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let gm = GenericMessenger::new(cfg);
+        gm.remove_reaction("msg-1", "#general", "👍").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_remove_reaction_after_init_is_ok() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let mut gm = GenericMessenger::new(cfg);
+        gm.initialize().await.unwrap();
+        gm.remove_reaction("msg-1", "#general", "❤️").await.unwrap();
+        gm.disconnect().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_get_profile_picture_before_init_returns_none() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let gm = GenericMessenger::new(cfg);
+        let pic = gm.get_profile_picture("alice").await.unwrap();
+        assert!(pic.is_none());
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_get_profile_picture_after_init_returns_none() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let mut gm = GenericMessenger::new(cfg);
+        gm.initialize().await.unwrap();
+        let pic = gm.get_profile_picture("bob").await.unwrap();
+        assert!(pic.is_none());
+        gm.disconnect().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_set_profile_picture_before_init_is_ok() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let gm = GenericMessenger::new(cfg);
+        gm.set_profile_picture("https://example.com/avatar.png").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_set_profile_picture_after_init_is_ok() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let mut gm = GenericMessenger::new(cfg);
+        gm.initialize().await.unwrap();
+        gm.set_profile_picture("https://example.com/avatar.png").await.unwrap();
+        gm.disconnect().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_set_text_status_before_init_is_ok() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let gm = GenericMessenger::new(cfg);
+        gm.set_text_status("Working from home 🏠").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_set_text_status_after_init_is_ok() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let mut gm = GenericMessenger::new(cfg);
+        gm.initialize().await.unwrap();
+        gm.set_text_status("In a meeting").await.unwrap();
+        gm.disconnect().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_search_messages_before_init_returns_empty() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let gm = GenericMessenger::new(cfg);
+        let results = gm.search_messages(SearchQuery {
+            text: "hello".into(),
+            ..Default::default()
+        }).await.unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn generic_messenger_search_messages_after_init_returns_empty() {
+        let cfg = MessengerConfig::Console(ConsoleConfig { name: "con".into() });
+        let mut gm = GenericMessenger::new(cfg);
+        gm.initialize().await.unwrap();
+        let results = gm.search_messages(SearchQuery {
+            text: "rust".into(),
+            channel: Some("#general".into()),
+            limit: Some(10),
+            ..Default::default()
+        }).await.unwrap();
+        assert!(results.is_empty());
+        gm.disconnect().await.unwrap();
+    }
+
+    #[test]
+    fn search_query_serde_roundtrip() {
+        let q = SearchQuery {
+            text: "hello world".into(),
+            channel: Some("#rust".into()),
+            from: Some("alice".into()),
+            limit: Some(50),
+            before_timestamp: Some(9_999_999),
+            after_timestamp: Some(1_000_000),
+        };
+        let json = serde_json::to_string(&q).unwrap();
+        let de: SearchQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.text, q.text);
+        assert_eq!(de.channel, q.channel);
+        assert_eq!(de.from, q.from);
+        assert_eq!(de.limit, q.limit);
+        assert_eq!(de.before_timestamp, q.before_timestamp);
+        assert_eq!(de.after_timestamp, q.after_timestamp);
+    }
+
+    #[test]
+    fn search_query_defaults() {
+        let q: SearchQuery = serde_json::from_str(r#"{"text":"hi"}"#).unwrap();
+        assert_eq!(q.text, "hi");
+        assert!(q.channel.is_none());
+        assert!(q.from.is_none());
+        assert!(q.limit.is_none());
+        assert!(q.before_timestamp.is_none());
+        assert!(q.after_timestamp.is_none());
     }
 }

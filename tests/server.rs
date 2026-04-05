@@ -41,6 +41,7 @@ impl ChatServer for MockChatServer {
             reply_to: None,
             media: None,
             is_direct: false,
+            reactions: None,
         };
         self.processed.lock().unwrap().push(msg.clone());
         handler(msg).await?;

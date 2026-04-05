@@ -15,6 +15,7 @@ fn make_message(id: &str, sender: &str, content: &str) -> Message {
         reply_to: None,
         media: None,
         is_direct: false,
+        reactions: None,
     }
 }
 

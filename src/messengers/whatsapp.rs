@@ -97,6 +97,7 @@ impl Messenger for WhatsAppMessenger {
                                     reply_to: None,
                                     media: None,
                                     is_direct: !info.source.is_group,
+                                    reactions: None,
                                 };
                                 if let Ok(mut msgs) = messages.lock() {
                                     msgs.push(m);

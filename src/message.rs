@@ -2,6 +2,21 @@
 
 use serde::{Deserialize, Serialize};
 
+/// A single emoji reaction attached to a message, with an aggregate count and
+/// the list of user IDs who reacted.
+///
+/// `user_ids` may be empty on platforms that only expose aggregate counts.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Reaction {
+    /// The emoji (Unicode character or platform-specific shortcode).
+    pub emoji: String,
+    /// Number of users who added this reaction.
+    pub count: u32,
+    /// IDs of the users who reacted (may be empty if the platform does not expose them).
+    #[serde(default)]
+    pub user_ids: Vec<String>,
+}
+
 /// A message received from or sent to a chat platform.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
@@ -11,12 +26,17 @@ pub struct Message {
     pub timestamp: i64,
     #[serde(default)]
     pub channel: Option<String>,
+    /// ID of the message this is replying to, if any.
     #[serde(default)]
     pub reply_to: Option<String>,
     #[serde(default)]
     pub media: Option<Vec<MediaAttachment>>,
     #[serde(default)]
     pub is_direct: bool,
+    /// Reactions attached to this message (populated when receiving messages on
+    /// platforms that expose them; `None` means unknown / not fetched).
+    #[serde(default)]
+    pub reactions: Option<Vec<Reaction>>,
 }
 
 /// A media attachment in a message.

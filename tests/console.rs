@@ -11,6 +11,7 @@ fn make_message(id: &str, sender: &str, content: &str) -> Message {
         reply_to: None,
         media: None,
         is_direct: false,
+        reactions: None,
     }
 }
 
@@ -152,6 +153,7 @@ async fn console_enqueue_direct_message() {
         reply_to: None,
         media: None,
         is_direct: true,
+        reactions: None,
     });
     let msgs = m.receive_messages().await.unwrap();
     assert_eq!(msgs.len(), 1);

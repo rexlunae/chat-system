@@ -25,6 +25,34 @@ pub enum PresenceStatus {
     Offline,
 }
 
+/// Structured query for searching messages.
+///
+/// All fields are optional; only the fields provided are used as filters.
+/// Platforms that do not support a particular filter silently ignore it.
+///
+/// The struct is serde-serializable so it can be loaded from config files or
+/// forwarded over APIs.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SearchQuery {
+    /// Free-text search string.
+    pub text: String,
+    /// Restrict the search to a particular channel or conversation ID.
+    #[serde(default)]
+    pub channel: Option<String>,
+    /// Restrict to messages from a specific sender ID / username.
+    #[serde(default)]
+    pub from: Option<String>,
+    /// Maximum number of results to return.
+    #[serde(default)]
+    pub limit: Option<usize>,
+    /// Return only messages sent before this Unix timestamp (exclusive).
+    #[serde(default)]
+    pub before_timestamp: Option<i64>,
+    /// Return only messages sent after this Unix timestamp (exclusive).
+    #[serde(default)]
+    pub after_timestamp: Option<i64>,
+}
+
 /// A unified interface for chat platform clients.
 #[async_trait]
 pub trait Messenger: Send + Sync {
@@ -49,6 +77,69 @@ pub trait Messenger: Send + Sync {
     /// are unaffected.
     async fn set_status(&self, _status: PresenceStatus) -> Result<()> {
         Ok(())
+    }
+
+    /// Add an emoji reaction to a message.
+    ///
+    /// `message_id` is the platform message ID, `channel` is the channel or
+    /// conversation it belongs to, and `emoji` is the reaction emoji (Unicode
+    /// character or platform shortcode).
+    ///
+    /// Platforms that do not support reactions return `Ok(())` silently via
+    /// this default implementation.
+    async fn add_reaction(&self, _message_id: &str, _channel: &str, _emoji: &str) -> Result<()> {
+        Ok(())
+    }
+
+    /// Remove an emoji reaction from a message.
+    ///
+    /// Has the same signature as [`add_reaction`](Messenger::add_reaction).
+    /// Platforms that do not support reactions return `Ok(())` silently.
+    async fn remove_reaction(
+        &self,
+        _message_id: &str,
+        _channel: &str,
+        _emoji: &str,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    /// Retrieve the profile-picture URL for a user.
+    ///
+    /// Returns `Ok(None)` on platforms that do not expose profile pictures or
+    /// when the user has no picture set.
+    async fn get_profile_picture(&self, _user_id: &str) -> Result<Option<String>> {
+        Ok(None)
+    }
+
+    /// Update the bot's own profile picture.
+    ///
+    /// `url` may be an HTTP URL or a `file://` path depending on what the
+    /// platform accepts.  Platforms that do not support this operation silently
+    /// return `Ok(())`.
+    async fn set_profile_picture(&self, _url: &str) -> Result<()> {
+        Ok(())
+    }
+
+    /// Set the bot's text status / custom status message.
+    ///
+    /// This is distinct from [`set_status`](Messenger::set_status), which
+    /// controls the presence indicator (online/away/busy/…).  A text status is
+    /// a short human-readable string displayed next to the user's name on
+    /// platforms that support it (e.g. Slack, Discord).
+    ///
+    /// Platforms that do not support text statuses silently return `Ok(())`.
+    async fn set_text_status(&self, _text: &str) -> Result<()> {
+        Ok(())
+    }
+
+    /// Search for messages matching `query`.
+    ///
+    /// Returns an empty `Vec` on platforms that do not support server-side
+    /// search.  Results are returned in an unspecified order unless the
+    /// platform guarantees one.
+    async fn search_messages(&self, _query: SearchQuery) -> Result<Vec<Message>> {
+        Ok(Vec::new())
     }
 }
 

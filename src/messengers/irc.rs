@@ -184,6 +184,7 @@ impl Messenger for IrcMessenger {
                                 reply_to: None,
                                 media: None,
                                 is_direct: false,
+                                reactions: None,
                             });
                         }
                     }

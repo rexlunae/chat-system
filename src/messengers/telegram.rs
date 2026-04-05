@@ -108,6 +108,7 @@ impl Messenger for TelegramMessenger {
                         reply_to: None,
                         media: None,
                         is_direct: false,
+                        reactions: None,
                     });
                 }
             }
