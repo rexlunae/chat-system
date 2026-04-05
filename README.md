@@ -226,7 +226,7 @@ let msg = RichText(vec![
 println!("{}", msg.to_discord_markdown());   // **Hello**, world! [click](https://example.com)
 println!("{}", msg.to_telegram_html());      // <b>Hello</b>, world! <a href="…">click</a>
 println!("{}", msg.to_slack_mrkdwn());       // *Hello*, world! <https://example.com|click>
-println!("{}", msg.to_irc_formatted());      // \x02Hello\x0F, world! click [https://example.com]
+println!("{}", msg.to_irc_formatted());      // \x02Hello\x02, world! click (https://example.com)
 println!("{}", msg.to_whatsapp_formatted()); // *Hello*, world! click (https://example.com)
 println!("{}", msg.to_matrix_html());        // <b>Hello</b>, world! <a href="…">click</a>
 
@@ -372,6 +372,7 @@ async fn main() -> anyhow::Result<()> {
 # Generic interface (recommended starting point — no credentials needed)
 cargo run --example generic_config_client     # Full API showcase (console backend)
 cargo run --example generic_multi_platform    # MessengerManager multi-bot demo
+cargo run --example generic_config_server     # Server loaded from a JSON config file
 
 # IRC client + server
 cargo run --example irc_echo_server           # Server using Server + IrcListener API
