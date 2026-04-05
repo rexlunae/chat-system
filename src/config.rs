@@ -268,47 +268,86 @@ impl MessengerConfig {
 
 // ── per-protocol server config structs ────────────────────────────────────────
 
-/// Configuration for an IRC server.
+/// Configuration for an IRC listener.
+///
+/// Each `IrcListenerConfig` represents a single TCP address the server will
+/// accept IRC connections on.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IrcServerConfig {
-    pub name: String,
-    /// TCP addresses to bind.  The server will listen on every address in this
-    /// list simultaneously.  At least one address is required.
-    ///
-    /// Example (TOML):
-    /// ```toml
-    /// protocol = "irc"
-    /// name     = "my-server"
-    /// binds    = ["0.0.0.0:6667", "0.0.0.0:6697"]
-    /// ```
-    pub binds: Vec<String>,
+pub struct IrcListenerConfig {
+    /// TCP address to bind (e.g. `"0.0.0.0:6667"`).
+    pub address: String,
+}
+
+// ── ListenerConfig ────────────────────────────────────────────────────────────
+
+/// Protocol-selecting listener configuration.
+///
+/// The `protocol` field (the serde tag) identifies which wire protocol the
+/// listener speaks.  Currently only IRC is provided; additional protocols can
+/// be added as new variants.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "protocol", rename_all = "lowercase")]
+pub enum ListenerConfig {
+    Irc(IrcListenerConfig),
+}
+
+impl ListenerConfig {
+    /// The protocol this listener speaks.
+    pub fn protocol(&self) -> &str {
+        match self {
+            Self::Irc(_) => "irc",
+        }
+    }
+
+    /// The address this listener will bind.
+    pub fn address(&self) -> &str {
+        match self {
+            Self::Irc(c) => &c.address,
+        }
+    }
+
+    /// Construct a concrete [`ChatListener`](crate::server::ChatListener) from
+    /// this config.
+    pub fn build(&self) -> Box<dyn crate::server::ChatListener> {
+        match self {
+            Self::Irc(c) => Box::new(crate::servers::IrcListener::new(&c.address)),
+        }
+    }
 }
 
 // ── ServerConfig ───────────────────────────────────────────────────────────────
 
-/// Protocol-selecting server configuration.
+/// Server configuration.
 ///
-/// Mirrors [`MessengerConfig`] for the server side.  Currently only IRC is
-/// provided; additional protocols can be added as new variants.
+/// A server has a `name` and a list of [`ListenerConfig`]s.  Each listener may
+/// use a different protocol; the server itself is protocol-agnostic.
+///
+/// # Example (JSON)
+///
+/// ```json
+/// {
+///   "name": "my-server",
+///   "listeners": [
+///     { "protocol": "irc", "address": "0.0.0.0:6667" },
+///     { "protocol": "irc", "address": "0.0.0.0:6697" }
+///   ]
+/// }
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "protocol", rename_all = "lowercase")]
-pub enum ServerConfig {
-    Irc(IrcServerConfig),
+pub struct ServerConfig {
+    pub name: String,
+    pub listeners: Vec<ListenerConfig>,
 }
 
 impl ServerConfig {
     /// The human-readable name for this server instance.
     pub fn name(&self) -> &str {
-        match self {
-            Self::Irc(c) => &c.name,
-        }
+        &self.name
     }
 
-    /// All addresses this server will listen on.
-    pub fn bind_addresses(&self) -> Vec<&str> {
-        match self {
-            Self::Irc(c) => c.binds.iter().map(|s| s.as_str()).collect(),
-        }
+    /// The listener configurations.
+    pub fn listener_configs(&self) -> &[ListenerConfig] {
+        &self.listeners
     }
 }
 
@@ -471,22 +510,14 @@ impl Messenger for GenericMessenger {
 
 // ── GenericServer ──────────────────────────────────────────────────────────────
 
-/// Internal enum dispatching to concrete server backends.
+/// A config-driven server.
 ///
-/// Using an enum rather than `Box<dyn ChatServer>` avoids the dyn-compatibility
-/// limitation imposed by `ChatServer::run`'s generic handler parameter.
-enum ServerInner {
-    Irc(crate::servers::IrcServer),
-}
-
-/// A [`ChatServer`] whose protocol is determined at runtime by a [`ServerConfig`].
-///
-/// Call [`ChatServer::run`] to bind and start accepting connections; the inner
-/// server is built lazily on the first `run` call.  [`ChatServer::shutdown`]
-/// stops the running server.
+/// Builds a [`Server`](crate::server::Server) from a [`ServerConfig`],
+/// constructing the appropriate listeners for each entry in the config's
+/// `listeners` list.
 pub struct GenericServer {
     config: ServerConfig,
-    inner: Option<ServerInner>,
+    inner: Option<crate::server::Server>,
 }
 
 impl GenericServer {
@@ -503,29 +534,31 @@ impl GenericServer {
         &self.config
     }
 
-    fn build_inner(&self) -> ServerInner {
-        match &self.config {
-            ServerConfig::Irc(c) => {
-                let mut listeners = c.binds.iter().map(crate::servers::IrcListener::new);
-                let first = listeners.next().map(|l| {
-                    let mut s = crate::servers::IrcServer::from_listener(l);
-                    for l in listeners {
-                        s.add_listener(l);
-                    }
-                    s
-                });
-                ServerInner::Irc(first.unwrap_or_else(|| {
-                    // Empty binds list — create a server with no listeners;
-                    // run() will return immediately.
-                    crate::servers::IrcServer::empty()
-                }))
-            }
+    fn build_inner(&self) -> crate::server::Server {
+        let mut server = crate::server::Server::new(&self.config.name);
+        for lc in &self.config.listeners {
+            server.add_listener(lc.build());
         }
+        server
     }
 }
 
 #[async_trait]
 impl ChatServer for GenericServer {
+    fn name(&self) -> &str {
+        match &self.inner {
+            Some(s) => s.name(),
+            None => &self.config.name,
+        }
+    }
+
+    fn listeners(&self) -> Vec<&dyn crate::server::ChatListener> {
+        match &self.inner {
+            Some(s) => s.listeners(),
+            None => Vec::new(),
+        }
+    }
+
     async fn run<F, Fut>(&mut self, handler: F) -> Result<()>
     where
         F: Fn(Message) -> Fut + Send + Sync + 'static,
@@ -534,29 +567,14 @@ impl ChatServer for GenericServer {
         if self.inner.is_none() {
             self.inner = Some(self.build_inner());
         }
-        match self.inner.as_mut().unwrap() {
-            ServerInner::Irc(s) => s.run(handler).await,
-        }
-    }
-
-    fn address(&self) -> &str {
-        match &self.inner {
-            Some(ServerInner::Irc(s)) => s.address(),
-            None => self.config.bind_addresses().into_iter().next().unwrap_or(""),
-        }
-    }
-
-    fn addresses(&self) -> Vec<&str> {
-        match &self.inner {
-            Some(ServerInner::Irc(s)) => s.addresses(),
-            None => self.config.bind_addresses(),
-        }
+        self.inner.as_mut().unwrap().run(handler).await
     }
 
     async fn shutdown(&mut self) -> Result<()> {
-        match &mut self.inner {
-            Some(ServerInner::Irc(s)) => s.shutdown().await,
-            None => Ok(()),
+        if let Some(s) = &mut self.inner {
+            s.shutdown().await
+        } else {
+            Ok(())
         }
     }
 }
@@ -591,25 +609,38 @@ mod tests {
 
     #[test]
     fn server_config_roundtrip_json() {
-        let cfg = ServerConfig::Irc(IrcServerConfig {
+        let cfg = ServerConfig {
             name: "srv".into(),
-            binds: vec!["0.0.0.0:6667".into()],
-        });
+            listeners: vec![ListenerConfig::Irc(IrcListenerConfig {
+                address: "0.0.0.0:6667".into(),
+            })],
+        };
         let json = serde_json::to_string(&cfg).unwrap();
         let decoded: ServerConfig = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded.name(), "srv");
-        assert_eq!(decoded.bind_addresses(), vec!["0.0.0.0:6667"]);
+        assert_eq!(decoded.listeners.len(), 1);
+        assert_eq!(decoded.listeners[0].address(), "0.0.0.0:6667");
+        assert_eq!(decoded.listeners[0].protocol(), "irc");
     }
 
     #[test]
-    fn server_config_multi_bind_roundtrip_json() {
-        let cfg = ServerConfig::Irc(IrcServerConfig {
+    fn server_config_multi_listener_roundtrip_json() {
+        let cfg = ServerConfig {
             name: "srv".into(),
-            binds: vec!["0.0.0.0:6667".into(), "0.0.0.0:6697".into()],
-        });
+            listeners: vec![
+                ListenerConfig::Irc(IrcListenerConfig {
+                    address: "0.0.0.0:6667".into(),
+                }),
+                ListenerConfig::Irc(IrcListenerConfig {
+                    address: "0.0.0.0:6697".into(),
+                }),
+            ],
+        };
         let json = serde_json::to_string(&cfg).unwrap();
         let decoded: ServerConfig = serde_json::from_str(&json).unwrap();
-        assert_eq!(decoded.bind_addresses(), vec!["0.0.0.0:6667", "0.0.0.0:6697"]);
+        assert_eq!(decoded.listeners.len(), 2);
+        assert_eq!(decoded.listeners[0].address(), "0.0.0.0:6667");
+        assert_eq!(decoded.listeners[1].address(), "0.0.0.0:6697");
     }
 
     #[test]
@@ -622,13 +653,15 @@ mod tests {
     }
 
     #[test]
-    fn generic_server_address_before_run() {
-        let cfg = ServerConfig::Irc(IrcServerConfig {
+    fn generic_server_name_before_run() {
+        let cfg = ServerConfig {
             name: "srv".into(),
-            binds: vec!["127.0.0.1:7777".into()],
-        });
+            listeners: vec![ListenerConfig::Irc(IrcListenerConfig {
+                address: "127.0.0.1:7777".into(),
+            })],
+        };
         let gs = GenericServer::new(cfg);
-        assert_eq!(gs.address(), "127.0.0.1:7777");
+        assert_eq!(gs.name(), "srv");
     }
 
     #[tokio::test]

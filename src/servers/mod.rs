@@ -1,5 +1,5 @@
-//! Concrete [`ChatServer`] implementations.
+//! Concrete [`ChatListener`](crate::server::ChatListener) implementations.
 
 mod irc;
 
-pub use irc::{IrcListener, IrcServer};
+pub use irc::IrcListener;
