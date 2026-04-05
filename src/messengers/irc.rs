@@ -55,10 +55,10 @@ impl IrcMessenger {
         self
     }
 
-    async fn send_raw(&self, line: &str) -> Result<()> {
+    async fn send_raw(&self, line: impl AsRef<str>) -> Result<()> {
         if let Some(IrcConnection::Plain(_, writer)) = &self.connection {
             let mut w = writer.lock().await;
-            w.write_all(format!("{}\r\n", line).as_bytes()).await?;
+            w.write_all(format!("{}\r\n", line.as_ref()).as_bytes()).await?;
         }
         Ok(())
     }

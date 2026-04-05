@@ -243,7 +243,8 @@ impl RichTextNode {
     }
 }
 
-fn html_escape(s: &str) -> String {
+fn html_escape(s: impl AsRef<str>) -> String {
+    let s = s.as_ref();
     let mut out = String::with_capacity(s.len());
     for ch in s.chars() {
         match ch {
@@ -299,12 +300,13 @@ impl RichText {
     }
 
     /// Create from plain text.
-    pub fn from_plain(text: &str) -> Self {
-        Self(vec![RichTextNode::Plain(text.to_string())])
+    pub fn from_plain(text: impl AsRef<str>) -> Self {
+        Self(vec![RichTextNode::Plain(text.as_ref().to_string())])
     }
 
     /// Parse from Markdown using pulldown-cmark.
-    pub fn from_markdown(text: &str) -> Self {
+    pub fn from_markdown(text: impl AsRef<str>) -> Self {
+        let text = text.as_ref();
         let mut opts = Options::empty();
         opts.insert(Options::ENABLE_STRIKETHROUGH);
         let parser = Parser::new_ext(text, opts);

@@ -63,10 +63,10 @@ impl MessengerManager {
         Ok(all)
     }
 
-    pub async fn broadcast(&self, recipient: &str, content: &str) -> Vec<Result<String>> {
+    pub async fn broadcast(&self, recipient: impl AsRef<str>, content: impl AsRef<str>) -> Vec<Result<String>> {
         let mut results = Vec::new();
         for m in &self.messengers {
-            results.push(m.send_message(recipient, content).await);
+            results.push(m.send_message(recipient.as_ref(), content.as_ref()).await);
         }
         results
     }
@@ -75,10 +75,10 @@ impl MessengerManager {
         &self.messengers
     }
 
-    pub fn get(&self, name: &str) -> Option<&dyn Messenger> {
+    pub fn get(&self, name: impl AsRef<str>) -> Option<&dyn Messenger> {
         self.messengers
             .iter()
-            .find(|m| m.name() == name)
+            .find(|m| m.name() == name.as_ref())
             .map(|b| b.as_ref())
     }
 }

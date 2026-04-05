@@ -7,7 +7,8 @@ pub const TELEGRAM_MAX_LEN: usize = 4096;
 /// Slack message character limit.
 pub const SLACK_MAX_LEN: usize = 40_000;
 
-fn escape_html(s: &str) -> String {
+fn escape_html(s: impl AsRef<str>) -> String {
+    let s = s.as_ref();
     let mut out = String::with_capacity(s.len());
     for ch in s.chars() {
         match ch {
@@ -23,7 +24,7 @@ fn escape_html(s: &str) -> String {
 /// Convert Markdown to Telegram HTML.
 ///
 /// Telegram supports `<b>`, `<i>`, `<s>`, `<code>`, `<pre>`, `<a href="">`.
-pub fn markdown_to_telegram_html(md: &str) -> String {
+pub fn markdown_to_telegram_html(md: impl AsRef<str>) -> String {
     let escaped = escape_html(md);
     let mut out = String::with_capacity(escaped.len() + 64);
     let mut i = 0;
@@ -185,7 +186,8 @@ pub fn markdown_to_telegram_html(md: &str) -> String {
 }
 
 /// Convert Markdown to Slack mrkdwn format.
-pub fn markdown_to_slack(text: &str) -> String {
+pub fn markdown_to_slack(text: impl AsRef<str>) -> String {
+    let text = text.as_ref();
     let mut out = String::with_capacity(text.len());
     let mut i = 0;
     let bytes = text.as_bytes();
@@ -285,7 +287,7 @@ fn floor_char_boundary(s: &str, pos: usize) -> usize {
 }
 
 /// Convert markdown to Telegram HTML then split into chunks of at most `max_len` bytes.
-pub fn chunk_markdown_html(md: &str, max_len: usize) -> Vec<String> {
+pub fn chunk_markdown_html(md: impl AsRef<str>, max_len: usize) -> Vec<String> {
     let html = markdown_to_telegram_html(md);
     if html.len() <= max_len {
         return vec![html];

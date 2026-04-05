@@ -23,8 +23,8 @@ impl TelegramMessenger {
         }
     }
 
-    fn api_url(&self, method: &str) -> String {
-        format!("https://api.telegram.org/bot{}/{}", self.token, method)
+    fn api_url(&self, method: impl AsRef<str>) -> String {
+        format!("https://api.telegram.org/bot{}/{}", self.token, method.as_ref())
     }
 }
 
