@@ -272,9 +272,15 @@ impl MessengerConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IrcServerConfig {
     pub name: String,
-    /// TCP address to bind (e.g. `"127.0.0.1:6667"`).
+    /// Primary TCP address to bind (e.g. `"127.0.0.1:6667"`).
     #[serde(default = "default_irc_bind")]
     pub bind: String,
+    /// Additional addresses to listen on.
+    ///
+    /// Each entry creates an independent [`IrcListener`] that feeds connections
+    /// into the same server event loop as the primary `bind` address.
+    #[serde(default)]
+    pub extra_binds: Vec<String>,
 }
 fn default_irc_bind() -> String {
     "127.0.0.1:6667".to_string()
@@ -300,10 +306,19 @@ impl ServerConfig {
         }
     }
 
-    /// The bind address this server will listen on.
+    /// The primary bind address this server will listen on.
     pub fn bind_address(&self) -> &str {
         match self {
             Self::Irc(c) => &c.bind,
+        }
+    }
+
+    /// All addresses this server will listen on (primary + any extra binds).
+    pub fn bind_addresses(&self) -> Vec<&str> {
+        match self {
+            Self::Irc(c) => std::iter::once(c.bind.as_str())
+                .chain(c.extra_binds.iter().map(|s| s.as_str()))
+                .collect(),
         }
     }
 }
@@ -501,7 +516,13 @@ impl GenericServer {
 
     fn build_inner(&self) -> ServerInner {
         match &self.config {
-            ServerConfig::Irc(c) => ServerInner::Irc(crate::servers::IrcServer::new(&c.bind)),
+            ServerConfig::Irc(c) => {
+                let mut server = crate::servers::IrcServer::new(&c.bind);
+                for addr in &c.extra_binds {
+                    server.add_listener(crate::servers::IrcListener::new(addr));
+                }
+                ServerInner::Irc(server)
+            }
         }
     }
 }
@@ -525,6 +546,13 @@ impl ChatServer for GenericServer {
         match &self.inner {
             Some(ServerInner::Irc(s)) => s.address(),
             None => self.config.bind_address(),
+        }
+    }
+
+    fn addresses(&self) -> Vec<&str> {
+        match &self.inner {
+            Some(ServerInner::Irc(s)) => s.addresses(),
+            None => self.config.bind_addresses(),
         }
     }
 
@@ -569,6 +597,7 @@ mod tests {
         let cfg = ServerConfig::Irc(IrcServerConfig {
             name: "srv".into(),
             bind: "0.0.0.0:6667".into(),
+            extra_binds: vec![],
         });
         let json = serde_json::to_string(&cfg).unwrap();
         let decoded: ServerConfig = serde_json::from_str(&json).unwrap();
@@ -597,6 +626,7 @@ mod tests {
         let cfg = ServerConfig::Irc(IrcServerConfig {
             name: "srv".into(),
             bind: "127.0.0.1:7777".into(),
+            extra_binds: vec![],
         });
         let gs = GenericServer::new(cfg);
         assert_eq!(gs.address(), "127.0.0.1:7777");

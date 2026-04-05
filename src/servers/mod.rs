@@ -2,4 +2,4 @@
 
 mod irc;
 
-pub use irc::IrcServer;
+pub use irc::{IrcListener, IrcServer};
