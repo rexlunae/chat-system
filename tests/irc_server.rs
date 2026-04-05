@@ -50,8 +50,7 @@ async fn server_single_listener_receives_message() {
     let received: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     let received_clone = received.clone();
 
-    let mut server = Server::new("test-server")
-        .add_listener(IrcListener::new(addr));
+    let mut server = Server::new("test-server").add_listener(IrcListener::new(addr));
 
     let server_handle = tokio::spawn(async move {
         server
