@@ -133,6 +133,16 @@ pub trait ChatServer: Send + Sync {
 /// }).await?;
 /// # Ok(()) }
 /// ```
+///
+/// With the `tls` feature enabled, you can mix plaintext and TLS listeners:
+///
+/// ```rust,ignore
+/// use chat_system::servers::{IrcListener, TlsIrcListener};
+///
+/// let server = Server::new("my-server")
+///     .add_listener(IrcListener::new("0.0.0.0:6667"))
+///     .add_listener(TlsIrcListener::new("0.0.0.0:6697", tls_config));
+/// ```
 pub struct Server {
     name: String,
     listeners: Vec<Box<dyn ChatListener>>,
