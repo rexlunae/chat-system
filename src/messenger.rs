@@ -3,6 +3,27 @@
 use crate::message::{Message, SendOptions};
 use anyhow::Result;
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+
+/// The presence/availability status of a messenger account or bot.
+///
+/// Not every platform supports every variant; unsupported values fall back to
+/// the closest equivalent or are silently ignored via the default no-op
+/// implementation of [`Messenger::set_status`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PresenceStatus {
+    /// Fully available and accepting messages.
+    Online,
+    /// Temporarily away (e.g. idle, away message set).
+    Away,
+    /// Do-not-disturb / busy — notifications may be suppressed.
+    Busy,
+    /// Signed in but appearing as offline to other users.
+    Invisible,
+    /// Fully offline / disconnected.
+    Offline,
+}
 
 /// A unified interface for chat platform clients.
 #[async_trait]
@@ -18,6 +39,15 @@ pub trait Messenger: Send + Sync {
     fn is_connected(&self) -> bool;
     async fn disconnect(&mut self) -> Result<()>;
     async fn set_typing(&self, _channel: &str, _typing: bool) -> Result<()> {
+        Ok(())
+    }
+    /// Set the bot's own presence/availability status.
+    ///
+    /// Platforms that do not support a particular [`PresenceStatus`] value, or
+    /// that have no presence API at all, may ignore this call.  The default
+    /// implementation is a no-op so that existing messenger implementations
+    /// are unaffected.
+    async fn set_status(&self, _status: PresenceStatus) -> Result<()> {
         Ok(())
     }
 }
