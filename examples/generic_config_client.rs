@@ -19,7 +19,7 @@ async fn main() -> anyhow::Result<()> {
     // ── client ────────────────────────────────────────────────────────────────
     // A MessengerConfig can be deserialized from any serde-compatible source.
     // Here we build one directly; the JSON equivalent would be:
-    //   {"protocol":"irc","name":"bot","server":"...","nick":"bot","port":6667}
+    //   {"protocol":"irc","name":"irc-bot","server":"irc.libera.chat","port":6667,"nick":"generic-bot","channels":["#rust-chat-test"],"tls":false}
     let client_config = MessengerConfig::Irc(IrcConfig {
         name: "irc-bot".into(),
         server: "irc.libera.chat".into(),
