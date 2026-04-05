@@ -30,6 +30,10 @@ impl TelegramMessenger {
             method.as_ref()
         )
     }
+
+    fn get_updates_url(&self) -> String {
+        format!("{}?offset=0&timeout=0", self.api_url("getUpdates"))
+    }
 }
 
 #[async_trait]
@@ -80,12 +84,7 @@ impl Messenger for TelegramMessenger {
 
     async fn receive_messages(&self) -> Result<Vec<Message>> {
         // Always use offset=0 — may return repeated messages but always compiles.
-        let resp = self
-            .client
-            .get(self.api_url("getUpdates"))
-            .query(&[("offset", "0"), ("timeout", "0")])
-            .send()
-            .await?;
+        let resp = self.client.get(self.get_updates_url()).send().await?;
 
         let data: Value = resp.json().await?;
         let mut messages = Vec::new();

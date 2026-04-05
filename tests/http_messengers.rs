@@ -3,8 +3,14 @@ use chat_system::messengers::{
     TelegramMessenger, WebhookMessenger,
 };
 use chat_system::Messenger;
+use futures::{SinkExt, StreamExt};
+use serde_json::Value;
+use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
+use tokio::sync::Mutex;
+use tokio::time::{sleep, Duration};
+use tokio_tungstenite::{accept_async, tungstenite::Message as WsMessage};
 
 /// Starts a minimal HTTP/1.1 server that reads each request and responds with the given
 /// `status_code` and `body`. Returns the base URL (e.g. `http://127.0.0.1:PORT`).
@@ -29,6 +35,158 @@ async fn start_mock_http_server(status_code: u16, body: &'static str) -> String 
     });
 
     format!("http://127.0.0.1:{}", addr.port())
+}
+
+#[derive(Default)]
+struct MockDiscordState {
+    sent_messages: Mutex<Vec<(String, String)>>,
+    typing_channels: Mutex<Vec<String>>,
+}
+
+async fn start_mock_discord_gateway_server() -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.unwrap();
+        let mut websocket = accept_async(stream).await.unwrap();
+
+        websocket
+            .send(WsMessage::Text(
+                serde_json::json!({
+                    "op": 10,
+                    "d": { "heartbeat_interval": 50 }
+                })
+                .to_string()
+                .into(),
+            ))
+            .await
+            .unwrap();
+
+        if let Some(Ok(WsMessage::Text(payload))) = websocket.next().await {
+            let identify: Value = serde_json::from_str(&payload).unwrap();
+            assert_eq!(identify["op"].as_i64(), Some(2));
+        } else {
+            return;
+        }
+
+        websocket
+            .send(WsMessage::Text(
+                serde_json::json!({
+                    "op": 0,
+                    "t": "MESSAGE_CREATE",
+                    "s": 1,
+                    "d": {
+                        "id": "gateway-message-1",
+                        "channel_id": "channel-123",
+                        "content": "hello from gateway",
+                        "timestamp": "2024-01-01T00:00:00Z",
+                        "author": { "username": "gateway-user" },
+                        "guild_id": "guild-1"
+                    }
+                })
+                .to_string()
+                .into(),
+            ))
+            .await
+            .unwrap();
+
+        sleep(Duration::from_millis(100)).await;
+    });
+
+    format!("ws://127.0.0.1:{}/gateway", addr.port())
+}
+
+async fn start_mock_discord_http_server(gateway_url: String) -> (String, Arc<MockDiscordState>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let state = Arc::new(MockDiscordState::default());
+    let state_for_server = state.clone();
+
+    tokio::spawn(async move {
+        while let Ok((mut stream, _)) = listener.accept().await {
+            let state = state_for_server.clone();
+            let gateway_url = gateway_url.clone();
+
+            tokio::spawn(async move {
+                let mut buf = vec![0u8; 8192];
+                let bytes_read = stream.read(&mut buf).await.unwrap_or(0);
+                let request = String::from_utf8_lossy(&buf[..bytes_read]);
+                let mut lines = request.lines();
+                let request_line = lines.next().unwrap_or_default();
+                let mut parts = request_line.split_whitespace();
+                let method = parts.next().unwrap_or_default();
+                let path = parts.next().unwrap_or_default();
+                let body = request
+                    .split("\r\n\r\n")
+                    .nth(1)
+                    .unwrap_or_default();
+
+                let (status_code, status_text, response_body) = match (method, path) {
+                    ("GET", "/users/@me") => (200, "OK", r#"{"id":"bot-1","username":"bot"}"#.to_string()),
+                    ("GET", "/gateway/bot") => (
+                        200,
+                        "OK",
+                        serde_json::json!({ "url": gateway_url }).to_string(),
+                    ),
+                    ("POST", path) if path.starts_with("/channels/") && path.ends_with("/messages") => {
+                        let channel = path
+                            .trim_start_matches("/channels/")
+                            .trim_end_matches("/messages")
+                            .trim_end_matches('/')
+                            .to_string();
+                        let payload: Value = serde_json::from_str(body).unwrap_or(Value::Null);
+                        let content = payload["content"].as_str().unwrap_or_default().to_string();
+                        state.sent_messages.lock().await.push((channel, content));
+                        (200, "OK", r#"{"id":"discord-message-42"}"#.to_string())
+                    }
+                    ("POST", path) if path.starts_with("/channels/") && path.ends_with("/typing") => {
+                        let channel = path
+                            .trim_start_matches("/channels/")
+                            .trim_end_matches("/typing")
+                            .trim_end_matches('/')
+                            .to_string();
+                        state.typing_channels.lock().await.push(channel);
+                        (204, "No Content", String::new())
+                    }
+                    _ => (404, "Not Found", r#"{"error":"not found"}"#.to_string()),
+                };
+
+                let response = format!(
+                    "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    status_code,
+                    status_text,
+                    response_body.len(),
+                    response_body
+                );
+                let _ = stream.write_all(response.as_bytes()).await;
+            });
+        }
+    });
+
+    (format!("http://127.0.0.1:{}", addr.port()), state)
+}
+
+async fn create_initialized_discord_messenger() -> (DiscordMessenger, Arc<MockDiscordState>) {
+    let gateway_url = start_mock_discord_gateway_server().await;
+    let (api_base_url, state) = start_mock_discord_http_server(gateway_url).await;
+    let mut messenger = DiscordMessenger::new("discord".to_string(), "fake-token".to_string())
+        .with_api_base_url(api_base_url);
+
+    messenger.initialize().await.unwrap();
+    (messenger, state)
+}
+
+async fn wait_for_discord_messages(messenger: &DiscordMessenger) -> Vec<chat_system::Message> {
+    for _ in 0..20 {
+        let messages = messenger.receive_messages().await.unwrap();
+        if !messages.is_empty() {
+            return messages;
+        }
+        sleep(Duration::from_millis(25)).await;
+    }
+
+    Vec::new()
 }
 
 // ─── WebhookMessenger ────────────────────────────────────────────────────────
@@ -215,6 +373,44 @@ async fn discord_not_connected_before_initialize() {
 }
 
 #[tokio::test]
+async fn discord_initialize_sets_connected_and_receives_gateway_messages() {
+    let (messenger, _) = create_initialized_discord_messenger().await;
+    assert!(messenger.is_connected());
+
+    let messages = wait_for_discord_messages(&messenger).await;
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].id, "gateway-message-1");
+    assert_eq!(messages[0].sender, "gateway-user");
+    assert_eq!(messages[0].content, "hello from gateway");
+    assert_eq!(messages[0].channel.as_deref(), Some("channel-123"));
+    assert!(!messages[0].is_direct);
+}
+
+#[tokio::test]
+async fn discord_send_message_posts_to_channel_endpoint() {
+    let (messenger, state) = create_initialized_discord_messenger().await;
+
+    let message_id = messenger
+        .send_message("channel-123", "hello discord")
+        .await
+        .unwrap();
+
+    assert_eq!(message_id, "discord-message-42");
+    let sent_messages = state.sent_messages.lock().await;
+    assert_eq!(sent_messages.as_slice(), &[("channel-123".to_string(), "hello discord".to_string())]);
+}
+
+#[tokio::test]
+async fn discord_set_typing_posts_typing_indicator() {
+    let (messenger, state) = create_initialized_discord_messenger().await;
+
+    messenger.set_typing("channel-123", true).await.unwrap();
+
+    let typing_channels = state.typing_channels.lock().await;
+    assert_eq!(typing_channels.as_slice(), &["channel-123".to_string()]);
+}
+
+#[tokio::test]
 async fn discord_receive_messages_returns_empty_without_gateway() {
     let m = DiscordMessenger::new("discord".to_string(), "fake-token".to_string());
     let msgs = m.receive_messages().await.unwrap();
@@ -226,6 +422,15 @@ async fn discord_disconnect_without_init_is_ok() {
     let mut m = DiscordMessenger::new("discord".to_string(), "fake-token".to_string());
     m.disconnect().await.unwrap();
     assert!(!m.is_connected());
+}
+
+#[tokio::test]
+async fn discord_disconnect_after_initialize_clears_connected() {
+    let (mut messenger, _) = create_initialized_discord_messenger().await;
+
+    messenger.disconnect().await.unwrap();
+
+    assert!(!messenger.is_connected());
 }
 
 // ─── TelegramMessenger (state management; API URL is hardcoded) ──────────────
