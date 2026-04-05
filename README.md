@@ -275,20 +275,84 @@ let chunks = chunk_markdown_html(&very_long_markdown, 4096);
 
 ---
 
+## Server
+
+A **server** is a named container of listeners.  It owns no address, port, or protocol — those belong to the listeners.  Different listeners can speak different protocols while feeding into the same handler.
+
+### Programmatic (recommended)
+
+```rust
+use chat_system::server::Server;
+use chat_system::servers::IrcListener;
+use chat_system::ChatServer;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let mut server = Server::new("my-server");
+    server.add_listener(Box::new(IrcListener::new("0.0.0.0:6667")));
+    server.add_listener(Box::new(IrcListener::new("0.0.0.0:6697")));
+
+    server.run(|msg| async move {
+        println!("{}: {}", msg.sender, msg.content);
+        Ok(Some(format!("echo: {}", msg.content)))
+    }).await?;
+
+    Ok(())
+}
+```
+
+### Config-driven with `GenericServer`
+
+`ServerConfig` uses the `ListenerConfig` trait (via `typetag`), so listener configs are extensible and can be deserialized from any serde format.
+
+**JSON** (`server.json`):
+
+```json
+{
+  "name": "my-server",
+  "listeners": [
+    { "protocol": "irc", "address": "0.0.0.0:6667" },
+    { "protocol": "irc", "address": "0.0.0.0:6697" }
+  ]
+}
+```
+
+```rust
+use chat_system::{GenericServer, ChatServer, ServerConfig};
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let json = std::fs::read_to_string("server.json")?;
+    let config: ServerConfig = serde_json::from_str(&json)?;
+    let mut server = GenericServer::new(config);
+
+    server.run(|msg| async move {
+        println!("{}: {}", msg.sender, msg.content);
+        Ok(Some(format!("echo: {}", msg.content)))
+    }).await?;
+
+    Ok(())
+}
+```
+
+---
+
 ## Examples
 
 ```sh
 # Generic interface (recommended starting point — no credentials needed)
-cargo run --example generic_config_client
-cargo run --example generic_multi_platform
+cargo run --example generic_config_client     # Full API showcase (console backend)
+cargo run --example generic_multi_platform    # MessengerManager multi-bot demo
 
-# Protocol-specific
-cargo run --example irc_client
-cargo run --example irc_echo_server
-cargo run --example irc_encrypted_client
-cargo run --example irc_encrypted_echo_server
-cargo run --example discord_bot
-cargo run --example matrix_client --features matrix
+# IRC client + server
+cargo run --example irc_echo_server           # Server using Server + IrcListener API
+cargo run --example irc_client                # Plaintext client (connects to libera.chat)
+cargo run --example irc_encrypted_echo_server # TLS server (raw TLS, needs cert.pem/key.pem)
+cargo run --example irc_encrypted_client      # TLS client (connects to libera.chat:6697)
+
+# Other protocols
+cargo run --example discord_bot               # Discord bot (needs DISCORD_BOT_TOKEN)
+cargo run --example matrix_client --features matrix  # Matrix client (needs credentials)
 ```
 
 ---
