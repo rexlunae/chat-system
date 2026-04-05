@@ -12,6 +12,8 @@ use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
 use tokio_tungstenite::{accept_async, tungstenite::Message as WsMessage};
 
+const MOCK_UNUSED_HTTP_URL: &str = "http://placeholder.invalid";
+
 /// Starts a minimal HTTP/1.1 server that reads each request and responds with the given
 /// `status_code` and `body`. Returns the base URL (e.g. `http://127.0.0.1:PORT`).
 async fn start_mock_http_server(status_code: u16, body: &'static str) -> String {
@@ -453,27 +455,27 @@ async fn create_initialized_api_google_chat_messenger() -> (GoogleChatMessenger,
 
 #[tokio::test]
 async fn webhook_name_and_type() {
-    let m = WebhookMessenger::new("my-webhook".to_string(), "http://example.com".to_string());
+    let m = WebhookMessenger::new("my-webhook".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     assert_eq!(m.name(), "my-webhook");
     assert_eq!(m.messenger_type(), "webhook");
 }
 
 #[tokio::test]
 async fn webhook_not_connected_before_initialize() {
-    let m = WebhookMessenger::new("wh".to_string(), "http://example.com".to_string());
+    let m = WebhookMessenger::new("wh".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     assert!(!m.is_connected());
 }
 
 #[tokio::test]
 async fn webhook_initialize_sets_connected() {
-    let mut m = WebhookMessenger::new("wh".to_string(), "http://example.com".to_string());
+    let mut m = WebhookMessenger::new("wh".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     m.initialize().await.unwrap();
     assert!(m.is_connected());
 }
 
 #[tokio::test]
 async fn webhook_disconnect_clears_connected() {
-    let mut m = WebhookMessenger::new("wh".to_string(), "http://example.com".to_string());
+    let mut m = WebhookMessenger::new("wh".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     m.initialize().await.unwrap();
     m.disconnect().await.unwrap();
     assert!(!m.is_connected());
@@ -499,7 +501,7 @@ async fn webhook_send_message_server_error_returns_err() {
 
 #[tokio::test]
 async fn webhook_receive_messages_returns_empty() {
-    let mut m = WebhookMessenger::new("wh".to_string(), "http://example.com".to_string());
+    let mut m = WebhookMessenger::new("wh".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     m.initialize().await.unwrap();
     let msgs = m.receive_messages().await.unwrap();
     assert!(msgs.is_empty());
@@ -509,20 +511,20 @@ async fn webhook_receive_messages_returns_empty() {
 
 #[tokio::test]
 async fn teams_name_and_type() {
-    let m = TeamsMessenger::new("my-teams".to_string(), "http://example.com".to_string());
+    let m = TeamsMessenger::new("my-teams".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     assert_eq!(m.name(), "my-teams");
     assert_eq!(m.messenger_type(), "msteams");
 }
 
 #[tokio::test]
 async fn teams_not_connected_before_initialize() {
-    let m = TeamsMessenger::new("teams".to_string(), "http://example.com".to_string());
+    let m = TeamsMessenger::new("teams".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     assert!(!m.is_connected());
 }
 
 #[tokio::test]
 async fn teams_initialize_sets_connected() {
-    let mut m = TeamsMessenger::new("teams".to_string(), "http://example.com".to_string());
+    let mut m = TeamsMessenger::new("teams".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     m.initialize().await.unwrap();
     assert!(m.is_connected());
 }
@@ -535,7 +537,7 @@ async fn teams_graph_initialize_sets_connected() {
 
 #[tokio::test]
 async fn teams_disconnect_clears_connected() {
-    let mut m = TeamsMessenger::new("teams".to_string(), "http://example.com".to_string());
+    let mut m = TeamsMessenger::new("teams".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     m.initialize().await.unwrap();
     m.disconnect().await.unwrap();
     assert!(!m.is_connected());
@@ -572,7 +574,7 @@ async fn teams_send_message_server_error_returns_err() {
 
 #[tokio::test]
 async fn teams_receive_returns_empty() {
-    let mut m = TeamsMessenger::new("teams".to_string(), "http://example.com".to_string());
+    let mut m = TeamsMessenger::new("teams".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     m.initialize().await.unwrap();
     let msgs = m.receive_messages().await.unwrap();
     assert!(msgs.is_empty());
@@ -601,20 +603,20 @@ async fn teams_graph_receive_messages_polls_without_duplicates() {
 
 #[tokio::test]
 async fn google_chat_name_and_type() {
-    let m = GoogleChatMessenger::new("my-gchat".to_string(), "http://example.com".to_string());
+    let m = GoogleChatMessenger::new("my-gchat".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     assert_eq!(m.name(), "my-gchat");
     assert_eq!(m.messenger_type(), "googlechat");
 }
 
 #[tokio::test]
 async fn google_chat_not_connected_before_initialize() {
-    let m = GoogleChatMessenger::new("gchat".to_string(), "http://example.com".to_string());
+    let m = GoogleChatMessenger::new("gchat".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     assert!(!m.is_connected());
 }
 
 #[tokio::test]
 async fn google_chat_initialize_sets_connected() {
-    let mut m = GoogleChatMessenger::new("gchat".to_string(), "http://example.com".to_string());
+    let mut m = GoogleChatMessenger::new("gchat".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     m.initialize().await.unwrap();
     assert!(m.is_connected());
 }
@@ -627,7 +629,7 @@ async fn google_chat_api_initialize_sets_connected() {
 
 #[tokio::test]
 async fn google_chat_disconnect_clears_connected() {
-    let mut m = GoogleChatMessenger::new("gchat".to_string(), "http://example.com".to_string());
+    let mut m = GoogleChatMessenger::new("gchat".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     m.initialize().await.unwrap();
     m.disconnect().await.unwrap();
     assert!(!m.is_connected());
@@ -664,7 +666,7 @@ async fn google_chat_send_message_server_error_returns_err() {
 
 #[tokio::test]
 async fn google_chat_receive_returns_empty() {
-    let mut m = GoogleChatMessenger::new("gchat".to_string(), "http://example.com".to_string());
+    let mut m = GoogleChatMessenger::new("gchat".to_string(), MOCK_UNUSED_HTTP_URL.to_string());
     m.initialize().await.unwrap();
     let msgs = m.receive_messages().await.unwrap();
     assert!(msgs.is_empty());
