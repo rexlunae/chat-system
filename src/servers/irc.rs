@@ -122,6 +122,23 @@ impl IrcServer {
         }
     }
 
+    /// Create a new [`IrcServer`] seeded with a pre-built [`IrcListener`].
+    ///
+    /// Additional listeners can be attached with [`IrcServer::add_listener`].
+    pub fn from_listener(listener: IrcListener) -> Self {
+        Self {
+            listeners: vec![listener],
+        }
+    }
+
+    /// Create a new [`IrcServer`] with no listeners attached.
+    ///
+    /// Calling [`ChatServer::run`] on an empty server returns immediately.
+    /// Use [`IrcServer::add_listener`] to attach listeners before running.
+    pub fn empty() -> Self {
+        Self { listeners: vec![] }
+    }
+
     /// Add an extra [`IrcListener`] to this server.
     ///
     /// Additional listeners must be added *before* calling
