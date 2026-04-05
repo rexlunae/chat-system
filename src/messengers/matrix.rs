@@ -14,7 +14,12 @@ pub struct MatrixMessenger {
 }
 
 impl MatrixMessenger {
-    pub fn new(name: impl Into<String>, homeserver: impl Into<String>, username: impl Into<String>, password: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        homeserver: impl Into<String>,
+        username: impl Into<String>,
+        password: impl Into<String>,
+    ) -> Self {
         Self {
             name: name.into(),
             homeserver: homeserver.into(),

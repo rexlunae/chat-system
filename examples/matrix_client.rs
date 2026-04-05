@@ -15,8 +15,7 @@ fn main() {
             let username = std::env::var("MATRIX_USER").expect("Set MATRIX_USER env var");
             let password = std::env::var("MATRIX_PASSWORD").expect("Set MATRIX_PASSWORD env var");
 
-            let mut client =
-                MatrixMessenger::new("matrix-example", homeserver, username, password);
+            let mut client = MatrixMessenger::new("matrix-example", homeserver, username, password);
             client.initialize().await.unwrap();
             println!("Matrix connected!");
             client.disconnect().await.unwrap();

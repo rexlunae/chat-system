@@ -22,10 +22,10 @@ async fn main() -> anyhow::Result<()> {
     let mut client = IrcMessenger::new(
         "irc-encrypted-example",
         "irc.libera.chat",
-        6697,  // Standard TLS port for IRC
+        6697, // Standard TLS port for IRC
         nick,
     )
-    .with_tls(true)  // Enable TLS encryption
+    .with_tls(true) // Enable TLS encryption
     .with_channels(vec!["#rust-chat-test"]);
 
     println!("Connecting to IRC server via TLS...");

@@ -32,7 +32,12 @@ pub struct IrcMessenger {
 }
 
 impl IrcMessenger {
-    pub fn new(name: impl Into<String>, server: impl Into<String>, port: u16, nick: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        server: impl Into<String>,
+        port: u16,
+        nick: impl Into<String>,
+    ) -> Self {
         Self {
             name: name.into(),
             server: server.into(),
@@ -58,12 +63,17 @@ impl IrcMessenger {
     async fn send_raw(&self, line: impl AsRef<str>) -> Result<()> {
         if let Some(IrcConnection::Plain(_, writer)) = &self.connection {
             let mut w = writer.lock().await;
-            w.write_all(format!("{}\r\n", line.as_ref()).as_bytes()).await?;
+            w.write_all(format!("{}\r\n", line.as_ref()).as_bytes())
+                .await?;
         }
         Ok(())
     }
 
-    async fn read_line_timeout(&self, line: &mut String, duration: std::time::Duration) -> Result<Option<usize>> {
+    async fn read_line_timeout(
+        &self,
+        line: &mut String,
+        duration: std::time::Duration,
+    ) -> Result<Option<usize>> {
         if let Some(IrcConnection::Plain(reader, _)) = &self.connection {
             let mut r = reader.lock().await;
             match tokio::time::timeout(duration, r.read_line(line)).await {

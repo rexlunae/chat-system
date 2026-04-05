@@ -96,12 +96,7 @@ pub trait Messenger: Send + Sync {
     ///
     /// Has the same signature as [`add_reaction`](Messenger::add_reaction).
     /// Platforms that do not support reactions return `Ok(())` silently.
-    async fn remove_reaction(
-        &self,
-        _message_id: &str,
-        _channel: &str,
-        _emoji: &str,
-    ) -> Result<()> {
+    async fn remove_reaction(&self, _message_id: &str, _channel: &str, _emoji: &str) -> Result<()> {
         Ok(())
     }
 
@@ -185,7 +180,11 @@ impl MessengerManager {
         Ok(all)
     }
 
-    pub async fn broadcast(&self, recipient: impl AsRef<str>, content: impl AsRef<str>) -> Vec<Result<String>> {
+    pub async fn broadcast(
+        &self,
+        recipient: impl AsRef<str>,
+        content: impl AsRef<str>,
+    ) -> Vec<Result<String>> {
         let mut results = Vec::new();
         for m in &self.messengers {
             results.push(m.send_message(recipient.as_ref(), content.as_ref()).await);

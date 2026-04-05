@@ -8,9 +8,7 @@
 //!   cargo run --example generic_config_client
 
 use chat_system::{
-    config::{
-        ConsoleConfig, IrcConfig, IrcServerConfig, MessengerConfig, ServerConfig,
-    },
+    config::{ConsoleConfig, IrcConfig, IrcServerConfig, MessengerConfig, ServerConfig},
     GenericMessenger, GenericServer, Messenger, MessengerManager, PresenceStatus, SearchQuery,
 };
 
@@ -38,25 +36,33 @@ async fn main() -> anyhow::Result<()> {
     println!("Serialized config:\n{json}");
 
     let decoded: MessengerConfig = serde_json::from_str(&json)?;
-    println!("\nRound-trip OK  →  protocol={} name={}\n",
-        decoded.protocol_name(), decoded.name());
+    println!(
+        "\nRound-trip OK  →  protocol={} name={}\n",
+        decoded.protocol_name(),
+        decoded.name()
+    );
 
     // ── 2. Core send / receive with the console backend ───────────────────────
     // The console backend writes to stdout and reads from stdin — perfect for
     // demos and tests.  Replace the config to use any other platform.
     println!("--- Core send / receive (console backend) ---");
-    let console_cfg = MessengerConfig::Console(ConsoleConfig { name: "console-bot".into() });
+    let console_cfg = MessengerConfig::Console(ConsoleConfig {
+        name: "console-bot".into(),
+    });
     let mut bot = GenericMessenger::new(console_cfg);
     bot.initialize().await?;
 
-    bot.send_message("world", "Hello from GenericMessenger!").await?;
+    bot.send_message("world", "Hello from GenericMessenger!")
+        .await?;
     bot.disconnect().await?;
 
     // ── 3. Presence status ────────────────────────────────────────────────────
     // set_status is a no-op on platforms that don't support it; real platforms
     // (Slack, Discord, Matrix, …) will propagate the status to other users.
     println!("\n--- Presence status ---");
-    let console_cfg2 = MessengerConfig::Console(ConsoleConfig { name: "status-bot".into() });
+    let console_cfg2 = MessengerConfig::Console(ConsoleConfig {
+        name: "status-bot".into(),
+    });
     let mut bot2 = GenericMessenger::new(console_cfg2);
     bot2.initialize().await?;
 
@@ -75,7 +81,8 @@ async fn main() -> anyhow::Result<()> {
     // A short human-readable string displayed next to the username on platforms
     // like Slack and Discord.  Separate from the presence indicator above.
     println!("\n--- Text status ---");
-    bot2.set_text_status("Building something in Rust 🦀").await?;
+    bot2.set_text_status("Building something in Rust 🦀")
+        .await?;
     println!("  set_text_status → ok");
     bot2.set_text_status("").await?;
     println!("  cleared text status → ok");
@@ -95,19 +102,22 @@ async fn main() -> anyhow::Result<()> {
     println!("\n--- Profile pictures ---");
     let pic = bot2.get_profile_picture("alice").await?;
     println!("  get_profile_picture(\"alice\") → {pic:?}");
-    bot2.set_profile_picture("https://example.com/avatar.png").await?;
+    bot2.set_profile_picture("https://example.com/avatar.png")
+        .await?;
     println!("  set_profile_picture → ok");
 
     // ── 7. Message search ─────────────────────────────────────────────────────
     // Returns empty on platforms without server-side search support.
     // On Slack / Discord / Matrix this sends a real search query.
     println!("\n--- Search ---");
-    let results = bot2.search_messages(SearchQuery {
-        text: "hello".into(),
-        channel: Some("#general".into()),
-        limit: Some(10),
-        ..Default::default()
-    }).await?;
+    let results = bot2
+        .search_messages(SearchQuery {
+            text: "hello".into(),
+            channel: Some("#general".into()),
+            limit: Some(10),
+            ..Default::default()
+        })
+        .await?;
     println!("  search(\"hello\") → {} result(s)", results.len());
     bot2.disconnect().await?;
 
@@ -115,14 +125,19 @@ async fn main() -> anyhow::Result<()> {
     println!("\n--- MessengerManager (multi-bot) ---");
     let mut mgr = MessengerManager::new();
     for (i, name) in ["alpha", "beta", "gamma"].iter().enumerate() {
-        let cfg = MessengerConfig::Console(ConsoleConfig { name: (*name).into() });
+        let cfg = MessengerConfig::Console(ConsoleConfig {
+            name: (*name).into(),
+        });
         let mut gm = GenericMessenger::new(cfg);
         gm.initialize().await?;
         println!("  added messenger #{i}: {name}");
         mgr.add(Box::new(gm));
     }
     mgr.broadcast("world", "broadcast message").await;
-    println!("  broadcast → ok (sent to {} messengers)", mgr.messengers().len());
+    println!(
+        "  broadcast → ok (sent to {} messengers)",
+        mgr.messengers().len()
+    );
     mgr.disconnect_all().await?;
 
     // ── 9. Server config round-trip ───────────────────────────────────────────

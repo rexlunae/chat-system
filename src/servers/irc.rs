@@ -4,7 +4,6 @@ use crate::message::Message;
 use crate::server::ChatServer;
 use anyhow::Result;
 use async_trait::async_trait;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
@@ -69,10 +68,8 @@ where
                     reactions: None,
                 };
                 if let Ok(Some(reply)) = handler(msg).await {
-                    let response = format!(
-                        ":server!server@localhost PRIVMSG {} :{}\r\n",
-                        target, reply
-                    );
+                    let response =
+                        format!(":server!server@localhost PRIVMSG {} :{}\r\n", target, reply);
                     writer.write_all(response.as_bytes()).await?;
                 }
             }

@@ -59,10 +59,7 @@ async fn main() -> Result<()> {
     }
 }
 
-async fn handle_tls_client(
-    stream: tokio::net::TcpStream,
-    acceptor: TlsAcceptor,
-) -> Result<()> {
+async fn handle_tls_client(stream: tokio::net::TcpStream, acceptor: TlsAcceptor) -> Result<()> {
     // Perform TLS handshake
     let tls_stream = acceptor.accept(stream).await?;
     let (reader, mut writer) = tokio::io::split(tls_stream);
@@ -147,8 +144,8 @@ async fn load_tls_config() -> Result<rustls::server::ServerConfig> {
     // Read certificate
     let cert_bytes = fs::read(cert_path)?;
     let mut cert_cursor = std::io::Cursor::new(cert_bytes);
-    let certs: Vec<CertificateDer> = rustls_pemfile::certs(&mut cert_cursor)
-        .collect::<Result<Vec<_>, _>>()?;
+    let certs: Vec<CertificateDer> =
+        rustls_pemfile::certs(&mut cert_cursor).collect::<Result<Vec<_>, _>>()?;
 
     // Read private key
     let key_bytes = fs::read(key_path)?;
