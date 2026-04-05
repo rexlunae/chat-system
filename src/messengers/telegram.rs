@@ -5,34 +5,42 @@ use anyhow::Result;
 use async_trait::async_trait;
 use reqwest::Client;
 use serde_json::Value;
+use tokio::sync::Mutex;
 
 pub struct TelegramMessenger {
     name: String,
-    token: String,
+    api_base_url: String,
     client: Client,
+    last_update_id: Mutex<Option<i64>>,
     connected: bool,
 }
 
 impl TelegramMessenger {
     pub fn new(name: impl Into<String>, token: impl Into<String>) -> Self {
+        let token = token.into();
         Self {
             name: name.into(),
-            token: token.into(),
+            api_base_url: format!("https://api.telegram.org/bot{token}"),
             client: Client::new(),
+            last_update_id: Mutex::new(None),
             connected: false,
         }
     }
 
-    fn api_url(&self, method: impl AsRef<str>) -> String {
-        format!(
-            "https://api.telegram.org/bot{}/{}",
-            self.token,
-            method.as_ref()
-        )
+    pub fn with_api_base_url(mut self, url: impl Into<String>) -> Self {
+        self.api_base_url = url.into();
+        self
     }
 
-    fn get_updates_url(&self) -> String {
-        format!("{}?offset=0&timeout=0", self.api_url("getUpdates"))
+    fn api_url(&self, method: impl AsRef<str>) -> String {
+        format!("{}/{}", self.api_base_url.trim_end_matches('/'), method.as_ref())
+    }
+
+    fn get_updates_url(&self, offset: Option<i64>) -> String {
+        match offset {
+            Some(offset) => format!("{}?offset={offset}&timeout=0", self.api_url("getUpdates")),
+            None => format!("{}?timeout=0", self.api_url("getUpdates")),
+        }
     }
 }
 
@@ -83,14 +91,25 @@ impl Messenger for TelegramMessenger {
     }
 
     async fn receive_messages(&self) -> Result<Vec<Message>> {
-        // Always use offset=0 — may return repeated messages but always compiles.
-        let resp = self.client.get(self.get_updates_url()).send().await?;
+        let next_offset = {
+            let last_update_id = self.last_update_id.lock().await;
+            last_update_id.map(|update_id| update_id + 1)
+        };
+        let resp = self.client.get(self.get_updates_url(next_offset)).send().await?;
 
         let data: Value = resp.json().await?;
         let mut messages = Vec::new();
+        let mut max_update_id: Option<i64> = None;
 
         if let Some(updates) = data["result"].as_array() {
             for update in updates {
+                if let Some(update_id) = update["update_id"].as_i64() {
+                    max_update_id = Some(match max_update_id {
+                        Some(current) => current.max(update_id),
+                        None => update_id,
+                    });
+                }
+
                 if let Some(msg) = update.get("message") {
                     let id = msg["message_id"].as_i64().unwrap_or(0).to_string();
                     let sender = msg["from"]["username"]
@@ -117,6 +136,10 @@ impl Messenger for TelegramMessenger {
             }
         }
 
+        if let Some(max_update_id) = max_update_id {
+            *self.last_update_id.lock().await = Some(max_update_id);
+        }
+
         Ok(messages)
     }
 
@@ -125,6 +148,7 @@ impl Messenger for TelegramMessenger {
     }
 
     async fn disconnect(&mut self) -> Result<()> {
+        *self.last_update_id.lock().await = None;
         self.connected = false;
         Ok(())
     }

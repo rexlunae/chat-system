@@ -63,6 +63,12 @@ struct MockGoogleChatState {
     list_requests: Mutex<usize>,
 }
 
+#[derive(Default)]
+struct MockTelegramState {
+    sent_messages: Mutex<Vec<(String, String)>>,
+    update_requests: Mutex<Vec<String>>,
+}
+
 async fn start_mock_discord_gateway_server() -> String {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -451,6 +457,78 @@ async fn create_initialized_api_google_chat_messenger() -> (GoogleChatMessenger,
     (messenger, state)
 }
 
+async fn start_mock_telegram_server() -> (String, Arc<MockTelegramState>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let state = Arc::new(MockTelegramState::default());
+    let state_for_server = state.clone();
+
+    tokio::spawn(async move {
+        while let Ok((mut stream, _)) = listener.accept().await {
+            let state = state_for_server.clone();
+
+            tokio::spawn(async move {
+                let mut buf = vec![0u8; 8192];
+                let bytes_read = stream.read(&mut buf).await.unwrap_or(0);
+                let request = String::from_utf8_lossy(&buf[..bytes_read]);
+                let mut lines = request.lines();
+                let request_line = lines.next().unwrap_or_default();
+                let mut parts = request_line.split_whitespace();
+                let method = parts.next().unwrap_or_default();
+                let path = parts.next().unwrap_or_default();
+                let body = request.split("\r\n\r\n").nth(1).unwrap_or_default();
+
+                let (status_code, status_text, response_body) = match (method, path) {
+                    ("GET", "/getMe") => (200, "OK", r#"{"ok":true,"result":{"id":1,"username":"bot"}}"#.to_string()),
+                    ("POST", "/sendMessage") => {
+                        let payload: Value = serde_json::from_str(body).unwrap_or(Value::Null);
+                        let chat_id = match &payload["chat_id"] {
+                            Value::String(value) => value.clone(),
+                            Value::Number(value) => value.to_string(),
+                            _ => String::new(),
+                        };
+                        let text = payload["text"].as_str().unwrap_or_default().to_string();
+                        state.sent_messages.lock().await.push((chat_id, text));
+                        (200, "OK", r#"{"ok":true,"result":{"message_id":99}}"#.to_string())
+                    }
+                    ("GET", path) if path.starts_with("/getUpdates") => {
+                        state.update_requests.lock().await.push(path.to_string());
+                        if path.contains("offset=103") {
+                            (200, "OK", r#"{"ok":true,"result":[]}"#.to_string())
+                        } else {
+                            (
+                                200,
+                                "OK",
+                                r#"{"ok":true,"result":[{"update_id":101,"message":{"message_id":11,"from":{"username":"alice"},"text":"first telegram message","date":1710000000,"chat":{"id":12345}}},{"update_id":102,"message":{"message_id":12,"from":{"first_name":"Bob"},"text":"second telegram message","date":1710000001,"chat":{"id":12345}}}]}"#.to_string(),
+                            )
+                        }
+                    }
+                    _ => (404, "Not Found", r#"{"ok":false,"description":"not found"}"#.to_string()),
+                };
+
+                let response = format!(
+                    "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    status_code,
+                    status_text,
+                    response_body.len(),
+                    response_body
+                );
+                let _ = stream.write_all(response.as_bytes()).await;
+            });
+        }
+    });
+
+    (format!("http://127.0.0.1:{}", addr.port()), state)
+}
+
+async fn create_initialized_telegram_messenger() -> (TelegramMessenger, Arc<MockTelegramState>) {
+    let (api_base_url, state) = start_mock_telegram_server().await;
+    let mut messenger = TelegramMessenger::new("telegram", "fake-token").with_api_base_url(api_base_url);
+
+    messenger.initialize().await.unwrap();
+    (messenger, state)
+}
+
 // ─── WebhookMessenger ────────────────────────────────────────────────────────
 
 #[tokio::test]
@@ -767,7 +845,7 @@ async fn discord_disconnect_after_initialize_clears_connected() {
     assert!(!messenger.is_connected());
 }
 
-// ─── TelegramMessenger (state management; API URL is hardcoded) ──────────────
+// ─── TelegramMessenger ───────────────────────────────────────────────────────
 
 #[tokio::test]
 async fn telegram_name_and_type() {
@@ -783,10 +861,57 @@ async fn telegram_not_connected_before_initialize() {
 }
 
 #[tokio::test]
+async fn telegram_initialize_sets_connected() {
+    let (messenger, _) = create_initialized_telegram_messenger().await;
+    assert!(messenger.is_connected());
+}
+
+#[tokio::test]
+async fn telegram_send_message_posts_to_bot_api() {
+    let (messenger, state) = create_initialized_telegram_messenger().await;
+
+    let message_id = messenger.send_message("12345", "hello telegram").await.unwrap();
+
+    assert_eq!(message_id, "99");
+    let sent_messages = state.sent_messages.lock().await;
+    assert_eq!(sent_messages.as_slice(), &[("12345".to_string(), "hello telegram".to_string())]);
+}
+
+#[tokio::test]
+async fn telegram_receive_messages_tracks_offset_without_duplicates() {
+    let (messenger, state) = create_initialized_telegram_messenger().await;
+
+    let first_poll = messenger.receive_messages().await.unwrap();
+    assert_eq!(first_poll.len(), 2);
+    assert_eq!(first_poll[0].id, "11");
+    assert_eq!(first_poll[0].sender, "alice");
+    assert_eq!(first_poll[0].content, "first telegram message");
+    assert_eq!(first_poll[0].channel.as_deref(), Some("12345"));
+    assert_eq!(first_poll[1].id, "12");
+    assert_eq!(first_poll[1].sender, "Bob");
+
+    let second_poll = messenger.receive_messages().await.unwrap();
+    assert!(second_poll.is_empty());
+
+    let update_requests = state.update_requests.lock().await;
+    assert!(update_requests.iter().any(|path| path == "/getUpdates?timeout=0"));
+    assert!(update_requests.iter().any(|path| path == "/getUpdates?offset=103&timeout=0"));
+}
+
+#[tokio::test]
 async fn telegram_disconnect_without_init_is_ok() {
     let mut m = TelegramMessenger::new("telegram".to_string(), "fake-token".to_string());
     m.disconnect().await.unwrap();
     assert!(!m.is_connected());
+}
+
+#[tokio::test]
+async fn telegram_disconnect_after_initialize_clears_connected() {
+    let (mut messenger, _) = create_initialized_telegram_messenger().await;
+
+    messenger.disconnect().await.unwrap();
+
+    assert!(!messenger.is_connected());
 }
 
 // ─── SlackMessenger ───────────────────────────────────────────────────────────
