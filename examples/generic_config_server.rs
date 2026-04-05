@@ -63,7 +63,11 @@ async fn main() -> anyhow::Result<()> {
     println!("Loaded server config from {CONFIG_PATH}:");
     println!("  name      : {}", config.name());
     for lc in config.listener_configs() {
-        println!("  listener  : protocol={} address={}", lc.protocol(), lc.address());
+        println!(
+            "  listener  : protocol={} address={}",
+            lc.protocol(),
+            lc.address()
+        );
     }
     println!();
 
