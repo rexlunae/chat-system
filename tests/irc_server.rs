@@ -186,11 +186,17 @@ async fn generic_server_config_extra_binds_roundtrip() {
 
     let cfg = ServerConfig::Irc(IrcServerConfig {
         name: "srv".into(),
-        bind: "127.0.0.1:6667".into(),
-        extra_binds: vec!["127.0.0.1:6668".into(), "127.0.0.1:6669".into()],
+        binds: vec![
+            "127.0.0.1:6667".into(),
+            "127.0.0.1:6668".into(),
+            "127.0.0.1:6669".into(),
+        ],
     });
 
-    assert_eq!(cfg.bind_addresses(), vec!["127.0.0.1:6667", "127.0.0.1:6668", "127.0.0.1:6669"]);
+    assert_eq!(
+        cfg.bind_addresses(),
+        vec!["127.0.0.1:6667", "127.0.0.1:6668", "127.0.0.1:6669"]
+    );
 
     let json = serde_json::to_string(&cfg).unwrap();
     let decoded: ServerConfig = serde_json::from_str(&json).unwrap();

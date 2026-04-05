@@ -144,12 +144,11 @@ async fn main() -> anyhow::Result<()> {
     println!("\n--- Server config round-trip ---");
     let server_cfg = ServerConfig::Irc(IrcServerConfig {
         name: "irc-server".into(),
-        bind: "127.0.0.1:16667".into(),
-        extra_binds: vec![],
+        binds: vec!["127.0.0.1:16667".into()],
     });
     let server_json = serde_json::to_string_pretty(&server_cfg)?;
     println!("Server config:\n{server_json}");
-    println!("bind address: {}", server_cfg.bind_address());
+    println!("bind addresses: {:?}", server_cfg.bind_addresses());
 
     let _server = GenericServer::new(server_cfg);
     // Uncomment to actually run the server:
