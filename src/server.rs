@@ -123,9 +123,9 @@ pub trait ChatServer: Send + Sync {
 /// use chat_system::ChatServer;
 ///
 /// # #[tokio::main] async fn main() -> anyhow::Result<()> {
-/// let mut server = Server::new("my-server");
-/// server.add_listener(Box::new(IrcListener::new("0.0.0.0:6667")));
-/// server.add_listener(Box::new(IrcListener::new("0.0.0.0:6697")));
+/// let mut server = Server::new("my-server")
+///     .add_listener(IrcListener::new("0.0.0.0:6667"))
+///     .add_listener(IrcListener::new("0.0.0.0:6697"));
 ///
 /// server.run(|msg| async move {
 ///     println!("{}: {}", msg.sender, msg.content);
@@ -150,7 +150,17 @@ impl Server {
     /// Attach a listener.  The listener may speak any protocol.
     ///
     /// Listeners must be added **before** calling [`ChatServer::run`].
-    pub fn add_listener(&mut self, listener: Box<dyn ChatListener>) -> &mut Self {
+    pub fn add_listener(mut self, listener: impl ChatListener + 'static) -> Self {
+        self.listeners.push(Box::new(listener));
+        self
+    }
+
+    /// Attach an already-boxed listener.
+    ///
+    /// This is useful when you already have a `Box<dyn ChatListener>`, for
+    /// example from a [`ListenerConfig::build`](crate::config::ListenerConfig::build) call.
+    /// Listeners must be added **before** calling [`ChatServer::run`].
+    pub fn add_boxed_listener(mut self, listener: Box<dyn ChatListener>) -> Self {
         self.listeners.push(listener);
         self
     }

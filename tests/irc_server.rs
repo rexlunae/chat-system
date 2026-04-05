@@ -50,8 +50,8 @@ async fn server_single_listener_receives_message() {
     let received: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     let received_clone = received.clone();
 
-    let mut server = Server::new("test-server");
-    server.add_listener(Box::new(IrcListener::new(addr)));
+    let mut server = Server::new("test-server")
+        .add_listener(IrcListener::new(addr));
 
     let server_handle = tokio::spawn(async move {
         server
@@ -92,9 +92,9 @@ async fn server_multiple_listeners_all_deliver_messages() {
     let received: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     let received_clone = received.clone();
 
-    let mut server = Server::new("test-server");
-    server.add_listener(Box::new(IrcListener::new(addr1.clone())));
-    server.add_listener(Box::new(IrcListener::new(addr2.clone())));
+    let mut server = Server::new("test-server")
+        .add_listener(IrcListener::new(addr1.clone()))
+        .add_listener(IrcListener::new(addr2.clone()));
 
     let server_handle = tokio::spawn(async move {
         server
@@ -126,9 +126,9 @@ async fn server_multiple_listeners_all_deliver_messages() {
 
 #[tokio::test]
 async fn server_listeners_returns_all_attached_listeners() {
-    let mut server = Server::new("test-server");
-    server.add_listener(Box::new(IrcListener::new("127.0.0.1:6667")));
-    server.add_listener(Box::new(IrcListener::new("127.0.0.1:6697")));
+    let server = Server::new("test-server")
+        .add_listener(IrcListener::new("127.0.0.1:6667"))
+        .add_listener(IrcListener::new("127.0.0.1:6697"));
 
     assert_eq!(server.name(), "test-server");
     let listeners = server.listeners();
