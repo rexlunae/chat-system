@@ -26,9 +26,7 @@ use std::sync::Arc;
 /// message.  The return value `Option<String>` is an optional plain-text reply
 /// that the listener may format and send back in its wire protocol.
 pub type MessageHandler = Arc<
-    dyn Fn(Message) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send>>
-        + Send
-        + Sync,
+    dyn Fn(Message) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send>> + Send + Sync,
 >;
 
 /// Wrap a generic async closure into a [`MessageHandler`].
