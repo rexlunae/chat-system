@@ -151,6 +151,7 @@ impl MessengerManager {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn add(mut self, messenger: impl Messenger + 'static) -> Self {
         self.messengers.push(Box::new(messenger));
         self
