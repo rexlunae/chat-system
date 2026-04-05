@@ -1,19 +1,32 @@
 [package]
 name = "chat-system"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 rust-version = "1.86"
 description = "A multi-protocol async chat crate — single interface for IRC, Matrix, Discord, Telegram, Slack, Signal, WhatsApp, and more"
 homepage = "https://github.com/rexlunae/chat-system"
 repository = "https://github.com/rexlunae/chat-system"
+documentation = "https://docs.rs/chat-system"
 readme = "README.md"
 license = "MIT"
 keywords = ["chat", "messaging", "irc", "matrix", "discord"]
 categories = ["network-programming", "asynchronous"]
+include = [
+	"/Cargo.toml",
+	"/README.md",
+	"/LICENSE",
+	"/src/**",
+	"/examples/**",
+	"/tests/**",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-matrix = ["dep:matrix-sdk"]
+matrix = []
 whatsapp = ["dep:wa-rs", "dep:wa-rs-core", "dep:wa-rs-sqlite-storage", "dep:wa-rs-tokio-transport", "dep:wa-rs-ureq-http"]
 signal-cli = []
 tls = ["dep:tokio-rustls", "dep:rustls", "dep:rustls-pemfile"]
@@ -29,9 +42,7 @@ serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
-pulldown-cmark = { version = "0.12", default-features = false }
-
-matrix-sdk = { version = "0.7", optional = true, default-features = false, features = ["rustls-tls"] }
+pulldown-cmark = { version = "0.13", default-features = false }
 
 wa-rs = { version = "0.2", optional = true }
 wa-rs-core = { version = "0.2", optional = true }
@@ -40,9 +51,9 @@ wa-rs-tokio-transport = { version = "0.2", optional = true }
 wa-rs-ureq-http = { version = "0.2", optional = true }
 typetag = "0.2.21"
 
-tokio-rustls = { version = "0.25", optional = true }
-rustls = { version = "0.22", optional = true }
-rustls-pemfile = { version = "2.0", optional = true }
+tokio-rustls = { version = "0.26", optional = true }
+rustls = { version = "0.23", optional = true }
+rustls-pemfile = { version = "2.2", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }
