@@ -30,6 +30,7 @@ enum TeamsMode {
     BotFramework {
         app_id: String,
         app_password: String,
+        /// Bot Framework service URL; retained for future activity routing implementation.
         #[allow(dead_code)]
         service_url: Option<String>,
     },
