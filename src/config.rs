@@ -584,6 +584,51 @@ impl Messenger for GenericMessenger {
             Ok(Vec::new())
         }
     }
+
+    async fn edit_message(
+        &self,
+        message_id: &str,
+        channel: &str,
+        new_content: &str,
+    ) -> Result<()> {
+        if let Some(inner) = &self.inner {
+            inner.edit_message(message_id, channel, new_content).await
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn delete_message(&self, message_id: &str, channel: &str) -> Result<()> {
+        if let Some(inner) = &self.inner {
+            inner.delete_message(message_id, channel).await
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn pin_message(&self, message_id: &str, channel: &str) -> Result<()> {
+        if let Some(inner) = &self.inner {
+            inner.pin_message(message_id, channel).await
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn unpin_message(&self, message_id: &str, channel: &str) -> Result<()> {
+        if let Some(inner) = &self.inner {
+            inner.unpin_message(message_id, channel).await
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn get_channel_members(&self, channel: &str) -> Result<Vec<String>> {
+        if let Some(inner) = &self.inner {
+            inner.get_channel_members(channel).await
+        } else {
+            Ok(Vec::new())
+        }
+    }
 }
 
 // ── GenericServer ──────────────────────────────────────────────────────────────
