@@ -1,4 +1,8 @@
 //! IRC listener implementation.
+//!
+//! Implements a basic IRC server that handles connection registration,
+//! PRIVMSG/NOTICE, PING/PONG, JOIN/PART, TOPIC, and the standard
+//! RPL_WELCOME sequence (001–004).
 
 use crate::message::{Message, MessageType};
 use crate::server::{ChatListener, MessageHandler};
@@ -7,6 +11,9 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
+
+/// CTCP delimiter character (0x01).
+const CTCP_DELIM: char = '\x01';
 
 // ── IrcListener ───────────────────────────────────────────────────────────────
 
@@ -31,6 +38,7 @@ use tokio::net::TcpListener;
 /// ```
 pub struct IrcListener {
     address: String,
+    server_name: String,
     shutdown_tx: Option<tokio::sync::watch::Sender<bool>>,
 }
 
@@ -40,9 +48,43 @@ impl IrcListener {
     pub fn new(address: impl Into<String>) -> Self {
         Self {
             address: address.into(),
+            server_name: "localhost".to_string(),
             shutdown_tx: None,
         }
     }
+
+    /// Set a custom server name used in the RPL_WELCOME sequence.
+    pub fn with_server_name(mut self, name: impl Into<String>) -> Self {
+        self.server_name = name.into();
+        self
+    }
+}
+
+/// Send the standard IRC welcome sequence (RPL 001–004) to a newly registered
+/// client.
+async fn send_welcome(
+    writer: &mut (impl tokio::io::AsyncWrite + Unpin),
+    server_name: &str,
+    nick: &str,
+) -> Result<()> {
+    let lines = [
+        format!(
+            ":{server_name} 001 {nick} :Welcome to the Internet Relay Network {nick}\r\n"
+        ),
+        format!(
+            ":{server_name} 002 {nick} :Your host is {server_name}, running chat-system\r\n"
+        ),
+        format!(
+            ":{server_name} 003 {nick} :This server was created with chat-system\r\n"
+        ),
+        format!(
+            ":{server_name} 004 {nick} {server_name} chat-system o o\r\n"
+        ),
+    ];
+    for line in &lines {
+        writer.write_all(line.as_bytes()).await?;
+    }
+    Ok(())
 }
 
 /// Handle a single IRC connection: perform the handshake, parse `PRIVMSG`
@@ -50,9 +92,20 @@ impl IrcListener {
 ///
 /// Generic over the stream type so it can be used with both plain TCP and TLS
 /// connections.
+#[allow(dead_code)] // used by TlsIrcListener behind `tls` feature gate
 pub(super) async fn handle_connection(
     stream: impl tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
     handler: MessageHandler,
+) -> Result<()> {
+    handle_connection_with_name(stream, handler, "localhost").await
+}
+
+/// Like [`handle_connection`], but allows specifying a custom server name for
+/// the welcome sequence.
+pub(super) async fn handle_connection_with_name(
+    stream: impl tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    handler: MessageHandler,
+    server_name: &str,
 ) -> Result<()> {
     let (reader, mut writer) = tokio::io::split(stream);
     let mut lines = BufReader::new(reader).lines();
@@ -80,6 +133,51 @@ pub(super) async fn handle_connection(
             if parts.len() == 2 {
                 let target = parts[0];
                 let content = parts[1].trim_start_matches(':');
+
+                // Detect CTCP ACTION and map to MessageType::Action
+                let (msg_content, msg_type) =
+                    if content.starts_with(CTCP_DELIM) && content.ends_with(CTCP_DELIM) {
+                        let inner = content
+                            .trim_start_matches(CTCP_DELIM)
+                            .trim_end_matches(CTCP_DELIM);
+                        if let Some(action_text) = inner.strip_prefix("ACTION ") {
+                            (action_text.to_string(), MessageType::Action)
+                        } else {
+                            // Other CTCP in server context — skip
+                            continue;
+                        }
+                    } else {
+                        (content.to_string(), MessageType::Text)
+                    };
+
+                let msg = Message {
+                    id: format!("irc-{}", chrono::Utc::now().timestamp_millis()),
+                    sender: nick.clone(),
+                    content: msg_content,
+                    timestamp: chrono::Utc::now().timestamp(),
+                    channel: Some(target.to_string()),
+                    reply_to: None,
+                    thread_id: None,
+                    media: None,
+                    is_direct: !target.starts_with('#'),
+                    message_type: msg_type,
+                    edited_timestamp: None,
+                    reactions: None,
+                };
+                if let Ok(Some(reply)) = handler(msg).await {
+                    let response = format!(
+                        ":{server_name}!{server_name}@{server_name} PRIVMSG {} :{}\r\n",
+                        target, reply
+                    );
+                    writer.write_all(response.as_bytes()).await?;
+                }
+            }
+        } else if let Some(rest) = line.strip_prefix("NOTICE ") {
+            // Parse NOTICE similarly to PRIVMSG but deliver as System
+            let parts: Vec<&str> = rest.splitn(2, ' ').collect();
+            if parts.len() == 2 {
+                let target = parts[0];
+                let content = parts[1].trim_start_matches(':');
                 let msg = Message {
                     id: format!("irc-{}", chrono::Utc::now().timestamp_millis()),
                     sender: nick.clone(),
@@ -90,24 +188,32 @@ pub(super) async fn handle_connection(
                     thread_id: None,
                     media: None,
                     is_direct: !target.starts_with('#'),
-                    message_type: MessageType::Text,
+                    message_type: MessageType::System,
                     edited_timestamp: None,
                     reactions: None,
                 };
-                if let Ok(Some(reply)) = handler(msg).await {
-                    let response =
-                        format!(":server!server@localhost PRIVMSG {} :{}\r\n", target, reply);
-                    writer.write_all(response.as_bytes()).await?;
-                }
+                // NOTICEs do not generate automatic replies per IRC spec
+                let _ = handler(msg).await;
             }
+        } else if let Some(rest) = line.strip_prefix("JOIN ") {
+            let channel = rest.trim().trim_start_matches(':');
+            // Echo JOIN back to the client
+            writer
+                .write_all(
+                    format!(
+                        ":{nick}!{nick}@{server_name} JOIN {channel}\r\n"
+                    )
+                    .as_bytes(),
+                )
+                .await?;
+        } else if line.starts_with("PART ") || line.starts_with("TOPIC ") {
+            // Acknowledge silently for now
         } else if line == "QUIT" || line.starts_with("QUIT ") {
             break;
         }
 
         if !registered && !nick.is_empty() && user_seen {
-            writer
-                .write_all(format!(":localhost 001 {} :Welcome\r\n", nick).as_bytes())
-                .await?;
+            send_welcome(&mut writer, server_name, &nick).await?;
             registered = true;
         }
     }
@@ -135,6 +241,7 @@ impl ChatListener for IrcListener {
         self.address = listener.local_addr()?.to_string();
         tracing::info!(address = %self.address, "IRC listener bound");
         self.shutdown_tx = Some(shutdown_tx);
+        let server_name = self.server_name.clone();
 
         tokio::spawn(async move {
             // Hold `alive` — when this task exits, the sender is dropped,
@@ -148,8 +255,9 @@ impl ChatListener for IrcListener {
                             Ok((stream, peer)) => {
                                 tracing::debug!(%peer, "IRC listener: new connection");
                                 let h = Arc::clone(&handler);
+                                let sn = server_name.clone();
                                 tokio::spawn(async move {
-                                    if let Err(e) = handle_connection(stream, h).await {
+                                    if let Err(e) = handle_connection_with_name(stream, h, &sn).await {
                                         tracing::warn!("IRC connection error: {e}");
                                     }
                                 });
