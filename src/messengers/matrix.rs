@@ -45,6 +45,40 @@ impl MatrixMessenger {
         }
     }
 
+    /// Create a Matrix messenger using a pre-existing access token.
+    ///
+    /// This skips the password login flow and uses the provided token directly.
+    /// Useful when you already have an access token from a previous session or
+    /// from an external authentication flow.
+    ///
+    /// # Arguments
+    /// * `name` - Messenger instance name
+    /// * `homeserver` - Matrix homeserver URL (e.g., "https://matrix.org")
+    /// * `user_id` - Full Matrix user ID (e.g., "@user:matrix.org")
+    /// * `access_token` - Pre-existing access token
+    /// * `device_id` - Optional device ID (for E2EE tracking, not used in this implementation)
+    pub fn with_access_token(
+        name: impl Into<String>,
+        homeserver: impl Into<String>,
+        user_id: impl Into<String>,
+        access_token: impl Into<String>,
+        _device_id: Option<String>,
+    ) -> Self {
+        let user_id_str = user_id.into();
+        Self {
+            name: name.into(),
+            homeserver: homeserver.into(),
+            username: user_id_str.clone(),
+            password: String::new(), // Not needed for token auth
+            client: Client::new(),
+            access_token: Some(access_token.into()),
+            user_id: Some(user_id_str),
+            sync_token: Mutex::new(None),
+            txn_counter: AtomicU64::new(1),
+            connected: false,
+        }
+    }
+
     fn validate_config(&self) -> Result<()> {
         ensure!(
             !self.homeserver.trim().is_empty(),
@@ -54,10 +88,13 @@ impl MatrixMessenger {
             !self.username.trim().is_empty(),
             "Matrix username must not be empty"
         );
-        ensure!(
-            !self.password.trim().is_empty(),
-            "Matrix password must not be empty"
-        );
+        // Password is only required if we don't have a pre-existing access token
+        if self.access_token.is_none() {
+            ensure!(
+                !self.password.trim().is_empty(),
+                "Matrix password must not be empty (unless using access_token auth)"
+            );
+        }
         Ok(())
     }
 
@@ -251,6 +288,15 @@ impl Messenger for MatrixMessenger {
     }
 
     async fn initialize(&mut self) -> Result<()> {
+        // If we already have an access token (from with_access_token), skip login
+        if self.access_token.is_some() {
+            // Validate token by doing an initial sync
+            *self.sync_token.lock().await = None;
+            let _ = self.sync_once().await?;
+            self.connected = true;
+            return Ok(());
+        }
+
         #[derive(Deserialize)]
         struct LoginResponse {
             access_token: String,

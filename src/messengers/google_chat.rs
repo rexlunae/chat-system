@@ -23,7 +23,16 @@ enum GoogleChatMode {
     Api {
         token: String,
         space_id: String,
+        spaces: Vec<String>,
         api_base_url: String,
+        last_seen_message_name: Mutex<Option<String>>,
+    },
+    ServiceAccount {
+        credentials_path: String,
+        spaces: Vec<String>,
+        api_base_url: String,
+        /// Cached access token from service account auth
+        access_token: Mutex<Option<String>>,
         last_seen_message_name: Mutex<Option<String>>,
     },
 }
@@ -45,17 +54,58 @@ impl GoogleChatMessenger {
         token: impl Into<String>,
         space_id: impl Into<String>,
     ) -> Self {
+        let space = space_id.into();
         Self {
             name: name.into(),
             mode: GoogleChatMode::Api {
                 token: token.into(),
-                space_id: space_id.into(),
+                space_id: space.clone(),
+                spaces: vec![space],
                 api_base_url: "https://chat.googleapis.com/v1".to_string(),
                 last_seen_message_name: Mutex::new(None),
             },
             client: Client::new(),
             connected: false,
         }
+    }
+
+    /// Create a Google Chat messenger using a service account credentials file.
+    ///
+    /// The credentials file should be a JSON file downloaded from the Google Cloud Console
+    /// containing the service account's private key and email.
+    ///
+    /// # Arguments
+    /// * `name` - Messenger instance name
+    /// * `credentials_path` - Path to the service account JSON credentials file
+    /// * `spaces` - List of space IDs to monitor (e.g., ["spaces/ABC123", "spaces/DEF456"])
+    pub fn with_credentials(
+        name: impl Into<String>,
+        credentials_path: impl Into<String>,
+        spaces: Vec<impl Into<String>>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            mode: GoogleChatMode::ServiceAccount {
+                credentials_path: credentials_path.into(),
+                spaces: spaces.into_iter().map(|s| s.into()).collect(),
+                api_base_url: "https://chat.googleapis.com/v1".to_string(),
+                access_token: Mutex::new(None),
+                last_seen_message_name: Mutex::new(None),
+            },
+            client: Client::new(),
+            connected: false,
+        }
+    }
+
+    /// Add additional spaces to monitor (for API or ServiceAccount modes).
+    pub fn with_spaces(mut self, spaces: Vec<impl Into<String>>) -> Self {
+        match &mut self.mode {
+            GoogleChatMode::Api { spaces: s, .. } | GoogleChatMode::ServiceAccount { spaces: s, .. } => {
+                s.extend(spaces.into_iter().map(|x| x.into()));
+            }
+            GoogleChatMode::Webhook { .. } => {}
+        }
+        self
     }
 
     pub fn with_api_base_url(mut self, url: impl Into<String>) -> Self {
@@ -79,7 +129,19 @@ impl GoogleChatMessenger {
                 token,
                 api_base_url,
                 ..
-            } => (token, api_base_url),
+            } => (token.clone(), api_base_url.clone()),
+            GoogleChatMode::ServiceAccount {
+                api_base_url,
+                access_token,
+                ..
+            } => {
+                let token = access_token
+                    .lock()
+                    .await
+                    .clone()
+                    .ok_or_else(|| anyhow::anyhow!("Service account not initialized"))?;
+                (token, api_base_url.clone())
+            }
             GoogleChatMode::Webhook { .. } => {
                 anyhow::bail!("Google Chat API requested in webhook mode")
             }
@@ -87,8 +149,8 @@ impl GoogleChatMessenger {
 
         let response = self
             .client
-            .get(Self::api_url(api_base_url, path))
-            .bearer_auth(token)
+            .get(Self::api_url(&api_base_url, path))
+            .bearer_auth(&token)
             .send()
             .await
             .context("Google Chat API request failed")?;
@@ -111,7 +173,19 @@ impl GoogleChatMessenger {
                 token,
                 api_base_url,
                 ..
-            } => (token, api_base_url),
+            } => (token.clone(), api_base_url.clone()),
+            GoogleChatMode::ServiceAccount {
+                api_base_url,
+                access_token,
+                ..
+            } => {
+                let token = access_token
+                    .lock()
+                    .await
+                    .clone()
+                    .ok_or_else(|| anyhow::anyhow!("Service account not initialized"))?;
+                (token, api_base_url.clone())
+            }
             GoogleChatMode::Webhook { .. } => {
                 anyhow::bail!("Google Chat API requested in webhook mode")
             }
@@ -119,8 +193,8 @@ impl GoogleChatMessenger {
 
         let response = self
             .client
-            .post(Self::api_url(api_base_url, path))
-            .bearer_auth(token)
+            .post(Self::api_url(&api_base_url, path))
+            .bearer_auth(&token)
             .json(&body)
             .send()
             .await
@@ -155,8 +229,15 @@ impl GoogleChatMessenger {
     }
 
     async fn api_receive_messages(&self) -> Result<Vec<Message>> {
-        let space_id = match &self.mode {
-            GoogleChatMode::Api { space_id, .. } => space_id.clone(),
+        let spaces = match &self.mode {
+            GoogleChatMode::Api { space_id, spaces, .. } => {
+                if spaces.is_empty() {
+                    vec![space_id.clone()]
+                } else {
+                    spaces.clone()
+                }
+            }
+            GoogleChatMode::ServiceAccount { spaces, .. } => spaces.clone(),
             GoogleChatMode::Webhook { .. } => return Ok(Vec::new()),
         };
 
@@ -164,82 +245,100 @@ impl GoogleChatMessenger {
             GoogleChatMode::Api {
                 last_seen_message_name,
                 ..
+            }
+            | GoogleChatMode::ServiceAccount {
+                last_seen_message_name,
+                ..
             } => last_seen_message_name.lock().await.clone(),
             GoogleChatMode::Webhook { .. } => None,
         };
 
-        let data = self
-            .api_get_json(Self::space_messages_path(&space_id))
-            .await?;
-        let mut messages = Vec::new();
+        let mut all_messages = Vec::new();
         let mut newest_name = last_seen.clone();
 
-        if let Some(entries) = data["messages"].as_array() {
-            let mut parsed = Vec::new();
+        for space_id in &spaces {
+            let data = self
+                .api_get_json(Self::space_messages_path(space_id))
+                .await?;
+            let mut messages = Vec::new();
 
-            for entry in entries {
-                let Some(name) = entry["name"].as_str() else {
-                    continue;
-                };
-                let content = entry["text"].as_str().unwrap_or("").to_string();
-                if content.is_empty() {
-                    continue;
-                }
+            if let Some(entries) = data["messages"].as_array() {
+                let mut parsed = Vec::new();
 
-                let timestamp = entry["createTime"]
-                    .as_str()
-                    .and_then(|value| DateTime::parse_from_rfc3339(value).ok())
-                    .map(|value| value.timestamp())
-                    .unwrap_or_else(|| chrono::Utc::now().timestamp());
-                let sender = entry["sender"]["displayName"]
-                    .as_str()
-                    .or_else(|| entry["sender"]["name"].as_str())
-                    .unwrap_or("unknown")
-                    .to_string();
-                let is_direct = entry["space"]["type"].as_str() == Some("DM");
-
-                parsed.push(Message {
-                    id: name.to_string(),
-                    sender,
-                    content,
-                    timestamp,
-                    channel: Some(space_id.clone()),
-                    reply_to: entry["thread"]["name"].as_str().map(ToString::to_string),
-                    thread_id: None,
-                    media: None,
-                    is_direct,
-                    message_type: MessageType::Text,
-                    edited_timestamp: None,
-                    reactions: None,
-                });
-            }
-
-            if let Some(first) = parsed.first() {
-                newest_name = Some(first.id.clone());
-            }
-
-            if let Some(seen_name) = &last_seen {
-                for message in parsed {
-                    if message.id == *seen_name {
-                        break;
+                for entry in entries {
+                    let Some(name) = entry["name"].as_str() else {
+                        continue;
+                    };
+                    let content = entry["text"].as_str().unwrap_or("").to_string();
+                    if content.is_empty() {
+                        continue;
                     }
-                    messages.push(message);
+
+                    let timestamp = entry["createTime"]
+                        .as_str()
+                        .and_then(|value| DateTime::parse_from_rfc3339(value).ok())
+                        .map(|value| value.timestamp())
+                        .unwrap_or_else(|| chrono::Utc::now().timestamp());
+                    let sender = entry["sender"]["displayName"]
+                        .as_str()
+                        .or_else(|| entry["sender"]["name"].as_str())
+                        .unwrap_or("unknown")
+                        .to_string();
+                    let is_direct = entry["space"]["type"].as_str() == Some("DM");
+
+                    parsed.push(Message {
+                        id: name.to_string(),
+                        sender,
+                        content,
+                        timestamp,
+                        channel: Some(space_id.clone()),
+                        reply_to: entry["thread"]["name"].as_str().map(ToString::to_string),
+                        thread_id: None,
+                        media: None,
+                        is_direct,
+                        message_type: MessageType::Text,
+                        edited_timestamp: None,
+                        reactions: None,
+                    });
                 }
-                messages.reverse();
-            } else {
-                messages.extend(parsed.into_iter().rev());
+
+                if let Some(first) = parsed.first() {
+                    if newest_name.is_none() || first.id > *newest_name.as_ref().unwrap() {
+                        newest_name = Some(first.id.clone());
+                    }
+                }
+
+                if let Some(seen_name) = &last_seen {
+                    for message in parsed {
+                        if message.id == *seen_name {
+                            break;
+                        }
+                        messages.push(message);
+                    }
+                    messages.reverse();
+                } else {
+                    messages.extend(parsed.into_iter().rev());
+                }
             }
+
+            all_messages.extend(messages);
         }
 
-        if let GoogleChatMode::Api {
-            last_seen_message_name,
-            ..
-        } = &self.mode
-        {
-            *last_seen_message_name.lock().await = newest_name;
+        match &self.mode {
+            GoogleChatMode::Api {
+                last_seen_message_name,
+                ..
+            }
+            | GoogleChatMode::ServiceAccount {
+                last_seen_message_name,
+                ..
+            } => {
+                *last_seen_message_name.lock().await = newest_name;
+            }
+            GoogleChatMode::Webhook { .. } => {}
         }
 
-        Ok(messages)
+        Ok(all_messages)
     }
 }
 
@@ -254,12 +353,17 @@ impl Messenger for GoogleChatMessenger {
     }
 
     async fn initialize(&mut self) -> Result<()> {
-        if matches!(&self.mode, GoogleChatMode::Api { .. }) {
-            let space_id = match &self.mode {
-                GoogleChatMode::Api { space_id, .. } => space_id.clone(),
-                GoogleChatMode::Webhook { .. } => String::new(),
-            };
-            self.api_get_json(Self::space_path(&space_id)).await?;
+        match &self.mode {
+            GoogleChatMode::Api { space_id, .. } => {
+                self.api_get_json(Self::space_path(space_id)).await?;
+            }
+            GoogleChatMode::ServiceAccount { spaces, .. } => {
+                // Validate by checking at least one space
+                if let Some(space) = spaces.first() {
+                    self.api_get_json(Self::space_path(space)).await?;
+                }
+            }
+            GoogleChatMode::Webhook { .. } => {}
         }
         self.connected = true;
         Ok(())
@@ -294,6 +398,21 @@ impl Messenger for GoogleChatMessenger {
 
                 Ok(data["name"].as_str().unwrap_or_default().to_string())
             }
+            GoogleChatMode::ServiceAccount { spaces, .. } => {
+                let target_space = if space.is_empty() {
+                    spaces.first().ok_or_else(|| anyhow::anyhow!("No spaces configured"))?
+                } else {
+                    space
+                };
+                let data = self
+                    .api_post_json(
+                        Self::space_messages_path(target_space),
+                        json!({ "text": content }),
+                    )
+                    .await?;
+
+                Ok(data["name"].as_str().unwrap_or_default().to_string())
+            }
         }
     }
 
@@ -306,12 +425,18 @@ impl Messenger for GoogleChatMessenger {
     }
 
     async fn disconnect(&mut self) -> Result<()> {
-        if let GoogleChatMode::Api {
-            last_seen_message_name,
-            ..
-        } = &self.mode
-        {
-            *last_seen_message_name.lock().await = None;
+        match &self.mode {
+            GoogleChatMode::Api {
+                last_seen_message_name,
+                ..
+            }
+            | GoogleChatMode::ServiceAccount {
+                last_seen_message_name,
+                ..
+            } => {
+                *last_seen_message_name.lock().await = None;
+            }
+            GoogleChatMode::Webhook { .. } => {}
         }
         self.connected = false;
         Ok(())
