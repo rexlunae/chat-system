@@ -30,6 +30,7 @@ enum TeamsMode {
     BotFramework {
         app_id: String,
         app_password: String,
+        #[allow(dead_code)]
         service_url: Option<String>,
     },
 }
@@ -284,10 +285,15 @@ impl Messenger for TeamsMessenger {
             TeamsMode::Graph { .. } => {
                 self.graph_get_json("me").await?;
             }
-            TeamsMode::BotFramework { app_id, app_password, .. } => {
+            TeamsMode::BotFramework {
+                app_id,
+                app_password,
+                ..
+            } => {
                 // Validate Bot Framework credentials by getting an access token
                 // This uses the Azure Bot Service OAuth endpoint
-                let token_url = "https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token";
+                let token_url =
+                    "https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token";
                 let response = self
                     .client
                     .post(token_url)

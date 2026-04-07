@@ -28,6 +28,7 @@ enum GoogleChatMode {
         last_seen_message_name: Mutex<Option<String>>,
     },
     ServiceAccount {
+        #[allow(dead_code)]
         credentials_path: String,
         spaces: Vec<String>,
         api_base_url: String,
@@ -100,7 +101,8 @@ impl GoogleChatMessenger {
     /// Add additional spaces to monitor (for API or ServiceAccount modes).
     pub fn with_spaces(mut self, spaces: Vec<impl Into<String>>) -> Self {
         match &mut self.mode {
-            GoogleChatMode::Api { spaces: s, .. } | GoogleChatMode::ServiceAccount { spaces: s, .. } => {
+            GoogleChatMode::Api { spaces: s, .. }
+            | GoogleChatMode::ServiceAccount { spaces: s, .. } => {
                 s.extend(spaces.into_iter().map(|x| x.into()));
             }
             GoogleChatMode::Webhook { .. } => {}
@@ -230,7 +232,9 @@ impl GoogleChatMessenger {
 
     async fn api_receive_messages(&self) -> Result<Vec<Message>> {
         let spaces = match &self.mode {
-            GoogleChatMode::Api { space_id, spaces, .. } => {
+            GoogleChatMode::Api {
+                space_id, spaces, ..
+            } => {
                 if spaces.is_empty() {
                     vec![space_id.clone()]
                 } else {
@@ -400,7 +404,9 @@ impl Messenger for GoogleChatMessenger {
             }
             GoogleChatMode::ServiceAccount { spaces, .. } => {
                 let target_space = if space.is_empty() {
-                    spaces.first().ok_or_else(|| anyhow::anyhow!("No spaces configured"))?
+                    spaces
+                        .first()
+                        .ok_or_else(|| anyhow::anyhow!("No spaces configured"))?
                 } else {
                     space
                 };
