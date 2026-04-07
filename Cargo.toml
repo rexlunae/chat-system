@@ -27,10 +27,14 @@ rustdoc-args = ["--cfg", "docsrs"]
 [features]
 default = []
 matrix = []
+matrix-cli = ["dep:urlencoding"]
 whatsapp = ["dep:wa-rs", "dep:wa-rs-core", "dep:wa-rs-sqlite-storage", "dep:wa-rs-tokio-transport", "dep:wa-rs-ureq-http"]
 signal-cli = []
+telegram-cli = []
+discord-cli = []
+slack-cli = []
 tls = ["dep:tokio-rustls", "dep:rustls", "dep:rustls-pemfile"]
-full = ["matrix", "whatsapp", "signal-cli", "tls"]
+full = ["matrix", "matrix-cli", "whatsapp", "signal-cli", "telegram-cli", "discord-cli", "slack-cli", "tls"]
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -43,7 +47,7 @@ chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
 reqwest = { version = "0.13", features = ["json", "rustls", "form"], default-features = false }
 tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
-pulldown-cmark = { version = "0.13", default-features = false }
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 rusqlite = { version = "0.37", features = ["bundled"] }
 
 wa-rs = { version = "0.2", optional = true }
@@ -52,6 +56,7 @@ wa-rs-sqlite-storage = { version = "0.2", optional = true }
 wa-rs-tokio-transport = { version = "0.2", optional = true }
 wa-rs-ureq-http = { version = "0.2", optional = true }
 typetag = "0.2.21"
+urlencoding = { version = "2.1", optional = true }
 
 tokio-rustls = { version = "0.26", optional = true }
 rustls = { version = "0.23", optional = true }
