@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::DateTime;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::Mutex;
 
 pub struct TeamsMessenger {
@@ -285,18 +285,18 @@ impl Messenger for TeamsMessenger {
                     Self::graph_messages_path(team_id, channel)
                 };
                 let data = self
-                    .graph_post_json(path, json!({
-                        "body": {
-                            "contentType": "html",
-                            "content": content,
-                        }
-                    }))
+                    .graph_post_json(
+                        path,
+                        json!({
+                            "body": {
+                                "contentType": "html",
+                                "content": content,
+                            }
+                        }),
+                    )
                     .await?;
 
-                Ok(data["id"]
-                    .as_str()
-                    .unwrap_or_default()
-                    .to_string())
+                Ok(data["id"].as_str().unwrap_or_default().to_string())
             }
         }
     }

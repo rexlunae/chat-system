@@ -68,18 +68,10 @@ async fn send_welcome(
     nick: &str,
 ) -> Result<()> {
     let lines = [
-        format!(
-            ":{server_name} 001 {nick} :Welcome to the Internet Relay Network {nick}\r\n"
-        ),
-        format!(
-            ":{server_name} 002 {nick} :Your host is {server_name}, running chat-system\r\n"
-        ),
-        format!(
-            ":{server_name} 003 {nick} :This server was created with chat-system\r\n"
-        ),
-        format!(
-            ":{server_name} 004 {nick} {server_name} chat-system o o\r\n"
-        ),
+        format!(":{server_name} 001 {nick} :Welcome to the Internet Relay Network {nick}\r\n"),
+        format!(":{server_name} 002 {nick} :Your host is {server_name}, running chat-system\r\n"),
+        format!(":{server_name} 003 {nick} :This server was created with chat-system\r\n"),
+        format!(":{server_name} 004 {nick} {server_name} chat-system o o\r\n"),
     ];
     for line in &lines {
         writer.write_all(line.as_bytes()).await?;
@@ -199,12 +191,7 @@ pub(super) async fn handle_connection_with_name(
             let channel = rest.trim().trim_start_matches(':');
             // Echo JOIN back to the client
             writer
-                .write_all(
-                    format!(
-                        ":{nick}!{nick}@{server_name} JOIN {channel}\r\n"
-                    )
-                    .as_bytes(),
-                )
+                .write_all(format!(":{nick}!{nick}@{server_name} JOIN {channel}\r\n").as_bytes())
                 .await?;
         } else if line.starts_with("PART ") || line.starts_with("TOPIC ") {
             // Acknowledge silently for now

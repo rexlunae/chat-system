@@ -276,7 +276,10 @@ impl RichTextNode {
                 // IRC has no native spoiler; render as [spoiler] placeholder
                 format!(
                     "[spoiler: {}]",
-                    children.iter().map(|n| n.to_irc_formatted()).collect::<String>()
+                    children
+                        .iter()
+                        .map(|n| n.to_irc_formatted())
+                        .collect::<String>()
                 )
             }
             RichTextNode::Code(s) => format!("`{}`", s),
@@ -339,10 +342,7 @@ impl RichTextNode {
             }
             RichTextNode::Underline(children) => {
                 // WhatsApp has no underline; render plain
-                children
-                    .iter()
-                    .map(|n| n.to_whatsapp_formatted())
-                    .collect()
+                children.iter().map(|n| n.to_whatsapp_formatted()).collect()
             }
             RichTextNode::Strikethrough(children) => {
                 format!(
@@ -355,10 +355,7 @@ impl RichTextNode {
             }
             RichTextNode::Spoiler(children) => {
                 // WhatsApp has no spoiler; render plain
-                children
-                    .iter()
-                    .map(|n| n.to_whatsapp_formatted())
-                    .collect()
+                children.iter().map(|n| n.to_whatsapp_formatted()).collect()
             }
             RichTextNode::Code(s) => format!("`{}`", s),
             RichTextNode::CodeBlock { code, .. } => format!("```{}```", code),
@@ -433,20 +430,20 @@ impl RichText {
                 RichTextNode::Underline(children) => {
                     format!(
                         "__{}__",
-                        children.iter().map(|n| discord_node(n)).collect::<String>()
+                        children.iter().map(discord_node).collect::<String>()
                     )
                 }
                 RichTextNode::Spoiler(children) => {
                     format!(
                         "||{}||",
-                        children.iter().map(|n| discord_node(n)).collect::<String>()
+                        children.iter().map(discord_node).collect::<String>()
                     )
                 }
                 // For all other nodes, the standard markdown is correct for Discord.
                 other => other.to_markdown(),
             }
         }
-        self.0.iter().map(|n| discord_node(n)).collect()
+        self.0.iter().map(discord_node).collect()
     }
 
     /// Convert to Telegram HTML.
@@ -552,13 +549,12 @@ impl RichText {
                 Event::End(TagEnd::Heading(_)) => {
                     let children = stack.pop().unwrap_or_default();
                     let level_node = stack.pop().unwrap_or_default();
-                    let level: u8 = if let Some(RichTextNode::Plain(l)) =
-                        level_node.into_iter().next()
-                    {
-                        l.parse().unwrap_or(1)
-                    } else {
-                        1
-                    };
+                    let level: u8 =
+                        if let Some(RichTextNode::Plain(l)) = level_node.into_iter().next() {
+                            l.parse().unwrap_or(1)
+                        } else {
+                            1
+                        };
                     if let Some(top) = stack.last_mut() {
                         top.push(RichTextNode::Heading { level, children });
                     }
@@ -582,11 +578,7 @@ impl RichText {
                     let code_nodes = stack.pop().unwrap_or_default();
                     let lang_node = stack.pop().unwrap_or_default();
                     let lang = if let Some(RichTextNode::Plain(l)) = lang_node.into_iter().next() {
-                        if l.is_empty() {
-                            None
-                        } else {
-                            Some(l)
-                        }
+                        if l.is_empty() { None } else { Some(l) }
                     } else {
                         None
                     };
@@ -742,9 +734,10 @@ mod tests {
         let rt = RichText(vec![RichTextNode::Spoiler(vec![RichTextNode::Plain(
             "secret".into(),
         )])]);
-        assert!(rt
-            .to_matrix_html()
-            .contains("<span data-mx-spoiler>secret</span>"));
+        assert!(
+            rt.to_matrix_html()
+                .contains("<span data-mx-spoiler>secret</span>")
+        );
     }
 
     #[test]
@@ -760,9 +753,10 @@ mod tests {
         let rt = RichText(vec![RichTextNode::Blockquote(vec![RichTextNode::Plain(
             "quoted".into(),
         )])]);
-        assert!(rt
-            .to_matrix_html()
-            .contains("<blockquote>quoted</blockquote>"));
+        assert!(
+            rt.to_matrix_html()
+                .contains("<blockquote>quoted</blockquote>")
+        );
     }
 
     #[test]
@@ -797,17 +791,18 @@ mod tests {
     #[test]
     fn from_markdown_parses_blockquote() {
         let rt = RichText::from_markdown("> quoted text");
-        assert!(rt
-            .0
-            .iter()
-            .any(|n| matches!(n, RichTextNode::Blockquote(_))));
+        assert!(
+            rt.0.iter()
+                .any(|n| matches!(n, RichTextNode::Blockquote(_)))
+        );
     }
 
     #[test]
     fn from_markdown_parses_heading() {
         let rt = RichText::from_markdown("## Hello");
-        assert!(rt.0.iter().any(
-            |n| matches!(n, RichTextNode::Heading { level: 2, .. })
-        ));
+        assert!(
+            rt.0.iter()
+                .any(|n| matches!(n, RichTextNode::Heading { level: 2, .. }))
+        );
     }
 }

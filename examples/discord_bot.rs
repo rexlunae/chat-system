@@ -1,7 +1,7 @@
 //! Discord bot example (REST-based).
 
-use chat_system::messengers::DiscordMessenger;
 use chat_system::Messenger;
+use chat_system::messengers::DiscordMessenger;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

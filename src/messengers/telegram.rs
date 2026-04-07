@@ -34,7 +34,11 @@ impl TelegramMessenger {
     }
 
     fn api_url(&self, method: impl AsRef<str>) -> String {
-        format!("{}/{}", self.api_base_url.trim_end_matches('/'), method.as_ref())
+        format!(
+            "{}/{}",
+            self.api_base_url.trim_end_matches('/'),
+            method.as_ref()
+        )
     }
 
     fn get_updates_url(&self, offset: Option<i64>) -> String {
@@ -96,7 +100,11 @@ impl Messenger for TelegramMessenger {
             let last_update_id = self.last_update_id.lock().await;
             last_update_id.map(|update_id| update_id + 1)
         };
-        let resp = self.client.get(self.get_updates_url(next_offset)).send().await?;
+        let resp = self
+            .client
+            .get(self.get_updates_url(next_offset))
+            .send()
+            .await?;
 
         let data: Value = resp.json().await?;
         let mut messages = Vec::new();

@@ -25,9 +25,9 @@
 //! Or use the `irc_encrypted_client` example after modifying it to connect to localhost.
 
 use anyhow::Result;
+use chat_system::ChatServer;
 use chat_system::server::Server;
 use chat_system::servers::TlsIrcListener;
-use chat_system::ChatServer;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use std::sync::Arc;
 

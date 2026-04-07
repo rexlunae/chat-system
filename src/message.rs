@@ -4,10 +4,11 @@ use serde::{Deserialize, Serialize};
 
 /// The kind of a message, allowing callers to distinguish between regular
 /// text messages and system events.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MessageType {
     /// A regular text message.
+    #[default]
     Text,
     /// A system/service message (join, leave, topic change, etc.).
     System,
@@ -19,12 +20,6 @@ pub enum MessageType {
     Media,
     /// An action / `/me` message (IRC ACTION, Slack `/me`).
     Action,
-}
-
-impl Default for MessageType {
-    fn default() -> Self {
-        MessageType::Text
-    }
 }
 
 /// A single emoji reaction attached to a message, with an aggregate count and

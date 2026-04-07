@@ -6,8 +6,8 @@ fn main() {
 
     #[cfg(feature = "matrix")]
     {
-        use chat_system::messengers::MatrixMessenger;
         use chat_system::Messenger;
+        use chat_system::messengers::MatrixMessenger;
 
         tokio::runtime::Runtime::new().unwrap().block_on(async {
             let homeserver =

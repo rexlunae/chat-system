@@ -5,7 +5,7 @@ use crate::{Message, Messenger};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use tokio::sync::Mutex;
 
@@ -53,7 +53,10 @@ impl SlackMessenger {
             .context("Slack API request failed")?;
 
         let status = response.status();
-        let body = response.text().await.context("Failed to read Slack response body")?;
+        let body = response
+            .text()
+            .await
+            .context("Failed to read Slack response body")?;
         if !status.is_success() {
             anyhow::bail!("Slack API request failed {}: {}", status, body);
         }
@@ -72,7 +75,10 @@ impl SlackMessenger {
             .context("Slack API request failed")?;
 
         let status = response.status();
-        let response_body = response.text().await.context("Failed to read Slack response body")?;
+        let response_body = response
+            .text()
+            .await
+            .context("Failed to read Slack response body")?;
         if !status.is_success() {
             anyhow::bail!("Slack API request failed {}: {}", status, response_body);
         }

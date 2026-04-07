@@ -2,8 +2,8 @@
 
 #[cfg(feature = "whatsapp")]
 mod tests {
-    use chat_system::messengers::WhatsAppMessenger;
     use chat_system::Messenger;
+    use chat_system::messengers::WhatsAppMessenger;
 
     #[tokio::test]
     async fn whatsapp_name_and_type() {

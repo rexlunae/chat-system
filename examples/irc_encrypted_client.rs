@@ -9,8 +9,8 @@
 //! cargo run --example irc_encrypted_client
 //! ```
 
-use chat_system::messengers::IrcMessenger;
 use chat_system::Messenger;
+use chat_system::messengers::IrcMessenger;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
