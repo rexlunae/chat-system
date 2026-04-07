@@ -152,11 +152,12 @@ impl DiscordCliMessenger {
         let messages: Vec<DiscordMessage> = response.json().await?;
 
         // Update last seen message ID
-        if let Some(latest) = messages.first() {
+        if let Some(latest) = messages.last() {
             self.last_message_ids
                 .lock()
                 .await
                 .insert(channel_id.to_string(), latest.id.clone());
+        }
         }
 
         Ok(messages)
