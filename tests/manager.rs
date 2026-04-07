@@ -1,5 +1,5 @@
 use chat_system::messengers::ConsoleMessenger;
-use chat_system::{Message, MessengerManager};
+use chat_system::{Message, MessageType, MessengerManager};
 
 fn make_console(name: &str) -> ConsoleMessenger {
     ConsoleMessenger::new(name.to_string())
@@ -13,8 +13,11 @@ fn make_message(id: &str, sender: &str, content: &str) -> Message {
         timestamp: 1000,
         channel: None,
         reply_to: None,
+        thread_id: None,
         media: None,
         is_direct: false,
+        message_type: MessageType::Text,
+        edited_timestamp: None,
         reactions: None,
     }
 }

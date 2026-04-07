@@ -9,6 +9,7 @@
 //! This is an unofficial client.  Using custom WhatsApp clients may violate Meta's
 //! Terms of Service and could result in account suspension.  Use at your own risk.
 
+use crate::message::MessageType;
 use crate::{Message, Messenger};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -95,8 +96,11 @@ impl Messenger for WhatsAppMessenger {
                                     timestamp: info.timestamp.timestamp(),
                                     channel: Some(info.source.chat.to_string()),
                                     reply_to: None,
+                                    thread_id: None,
                                     media: None,
                                     is_direct: !info.source.is_group,
+                                    message_type: MessageType::Text,
+                                    edited_timestamp: None,
                                     reactions: None,
                                 };
                                 if let Ok(mut msgs) = messages.lock() {

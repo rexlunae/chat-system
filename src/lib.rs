@@ -322,7 +322,7 @@ pub mod servers;
 pub use channel_type::{ChannelCapabilities, ChannelDescriptor, ChannelType, InboundMode};
 pub use config::{GenericMessenger, GenericServer, MessengerConfig, ServerConfig};
 pub use markdown::{chunk_markdown_html, markdown_to_slack, markdown_to_telegram_html};
-pub use message::{MediaAttachment, Message, Reaction, SendOptions};
+pub use message::{MediaAttachment, Message, MessageType, Reaction, SendOptions};
 pub use messenger::{Messenger, MessengerManager, PresenceStatus, SearchQuery};
 pub use rich_text::{RichText, RichTextNode};
 pub use server::{ChatListener, ChatServer, MessageHandler, Server};

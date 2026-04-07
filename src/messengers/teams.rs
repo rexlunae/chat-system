@@ -1,5 +1,6 @@
 //! Microsoft Teams messenger — Incoming Webhook and Microsoft Graph implementation.
 
+use crate::message::MessageType;
 use crate::{Message, Messenger};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
@@ -198,8 +199,11 @@ impl TeamsMessenger {
                     timestamp,
                     channel: Some(channel_id.clone()),
                     reply_to,
+                    thread_id: None,
                     media: None,
                     is_direct: false,
+                    message_type: MessageType::Text,
+                    edited_timestamp: None,
                     reactions: None,
                 });
             }

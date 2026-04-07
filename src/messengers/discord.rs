@@ -1,5 +1,6 @@
 //! Discord messenger — REST API + Gateway implementation.
 
+use crate::message::MessageType;
 use crate::{Message, Messenger};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -174,8 +175,11 @@ impl DiscordMessenger {
                                         reply_to: data["message_reference"]["message_id"]
                                             .as_str()
                                             .map(|s| s.to_string()),
+                                        thread_id: None,
                                         media: None,
                                         is_direct: data.get("guild_id").is_none() || data["guild_id"].is_null(),
+                                        message_type: MessageType::Text,
+                                        edited_timestamp: None,
                                         reactions: None,
                                     };
 

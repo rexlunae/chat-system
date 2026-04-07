@@ -1,5 +1,6 @@
 //! Google Chat messenger — Incoming Webhook and Google Chat API implementation.
 
+use crate::message::MessageType;
 use crate::{Message, Messenger};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
@@ -194,8 +195,11 @@ impl GoogleChatMessenger {
                     timestamp,
                     channel: Some(space_id.clone()),
                     reply_to: entry["thread"]["name"].as_str().map(ToString::to_string),
+                    thread_id: None,
                     media: None,
                     is_direct,
+                    message_type: MessageType::Text,
+                    edited_timestamp: None,
                     reactions: None,
                 });
             }

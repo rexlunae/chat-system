@@ -27,6 +27,14 @@ pub struct ChannelCapabilities {
     pub supports_otp: bool,
     pub supports_reactions: bool,
     pub supports_location: bool,
+    /// Whether the platform supports editing sent messages.
+    pub supports_editing: bool,
+    /// Whether the platform supports deleting sent messages.
+    pub supports_deletion: bool,
+    /// Whether the platform supports file/media uploads.
+    pub supports_file_upload: bool,
+    /// Maximum message length in characters (0 = unknown/unlimited).
+    pub max_message_length: usize,
 }
 
 /// Descriptor combining a channel type with its display name and capabilities.
@@ -117,8 +125,12 @@ impl ChannelType {
                 supports_voice_ingest: true,
                 supports_pairing: false,
                 supports_otp: true,
-                supports_reactions: false,
+                supports_reactions: true,
                 supports_location: true,
+                supports_editing: true,
+                supports_deletion: true,
+                supports_file_upload: true,
+                max_message_length: 4096,
             },
             ChannelType::Whatsapp => ChannelCapabilities {
                 inbound_mode: InboundMode::GatewayLoop,
@@ -129,8 +141,12 @@ impl ChannelType {
                 supports_voice_ingest: true,
                 supports_pairing: true,
                 supports_otp: true,
-                supports_reactions: false,
+                supports_reactions: true,
                 supports_location: false,
+                supports_editing: true,
+                supports_deletion: true,
+                supports_file_upload: true,
+                max_message_length: 65536,
             },
             ChannelType::MsTeams => ChannelCapabilities {
                 inbound_mode: InboundMode::Webhook,
@@ -141,8 +157,12 @@ impl ChannelType {
                 supports_voice_ingest: false,
                 supports_pairing: false,
                 supports_otp: false,
-                supports_reactions: false,
+                supports_reactions: true,
                 supports_location: true,
+                supports_editing: true,
+                supports_deletion: true,
+                supports_file_upload: true,
+                max_message_length: 28000,
             },
             ChannelType::Discord => ChannelCapabilities {
                 inbound_mode: InboundMode::GatewayLoop,
@@ -153,8 +173,12 @@ impl ChannelType {
                 supports_voice_ingest: false,
                 supports_pairing: false,
                 supports_otp: false,
-                supports_reactions: false,
+                supports_reactions: true,
                 supports_location: true,
+                supports_editing: true,
+                supports_deletion: true,
+                supports_file_upload: true,
+                max_message_length: 2000,
             },
             ChannelType::Slack => ChannelCapabilities {
                 inbound_mode: InboundMode::SocketMode,
@@ -167,6 +191,10 @@ impl ChannelType {
                 supports_otp: false,
                 supports_reactions: true,
                 supports_location: false,
+                supports_editing: true,
+                supports_deletion: true,
+                supports_file_upload: true,
+                max_message_length: 40000,
             },
             ChannelType::Irc => ChannelCapabilities {
                 inbound_mode: InboundMode::GatewayLoop,
@@ -179,6 +207,10 @@ impl ChannelType {
                 supports_otp: false,
                 supports_reactions: false,
                 supports_location: false,
+                supports_editing: false,
+                supports_deletion: false,
+                supports_file_upload: false,
+                max_message_length: 512,
             },
             ChannelType::Matrix => ChannelCapabilities {
                 inbound_mode: InboundMode::GatewayLoop,
@@ -191,6 +223,10 @@ impl ChannelType {
                 supports_otp: false,
                 supports_reactions: true,
                 supports_location: false,
+                supports_editing: true,
+                supports_deletion: true,
+                supports_file_upload: true,
+                max_message_length: 65536,
             },
             ChannelType::Signal => ChannelCapabilities {
                 inbound_mode: InboundMode::GatewayLoop,
@@ -201,8 +237,12 @@ impl ChannelType {
                 supports_voice_ingest: true,
                 supports_pairing: false,
                 supports_otp: false,
-                supports_reactions: false,
+                supports_reactions: true,
                 supports_location: false,
+                supports_editing: false,
+                supports_deletion: true,
+                supports_file_upload: true,
+                max_message_length: 0,
             },
             ChannelType::GoogleChat => ChannelCapabilities {
                 inbound_mode: InboundMode::Webhook,
@@ -213,8 +253,12 @@ impl ChannelType {
                 supports_voice_ingest: false,
                 supports_pairing: false,
                 supports_otp: false,
-                supports_reactions: false,
+                supports_reactions: true,
                 supports_location: false,
+                supports_editing: true,
+                supports_deletion: true,
+                supports_file_upload: true,
+                max_message_length: 4096,
             },
             ChannelType::IMessage => ChannelCapabilities {
                 inbound_mode: InboundMode::Polling,
@@ -225,8 +269,12 @@ impl ChannelType {
                 supports_voice_ingest: false,
                 supports_pairing: false,
                 supports_otp: false,
-                supports_reactions: false,
+                supports_reactions: true,
                 supports_location: false,
+                supports_editing: false,
+                supports_deletion: false,
+                supports_file_upload: true,
+                max_message_length: 0,
             },
             ChannelType::Console => ChannelCapabilities {
                 inbound_mode: InboundMode::None,
@@ -239,6 +287,10 @@ impl ChannelType {
                 supports_otp: false,
                 supports_reactions: false,
                 supports_location: false,
+                supports_editing: false,
+                supports_deletion: false,
+                supports_file_upload: false,
+                max_message_length: 0,
             },
             ChannelType::Webhook => ChannelCapabilities {
                 inbound_mode: InboundMode::None,
@@ -251,6 +303,10 @@ impl ChannelType {
                 supports_otp: false,
                 supports_reactions: false,
                 supports_location: false,
+                supports_editing: false,
+                supports_deletion: false,
+                supports_file_upload: false,
+                max_message_length: 0,
             },
         };
         ChannelDescriptor {

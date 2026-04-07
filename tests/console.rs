@@ -1,5 +1,5 @@
 use chat_system::messengers::ConsoleMessenger;
-use chat_system::{Message, Messenger, SendOptions};
+use chat_system::{Message, MessageType, Messenger, SendOptions};
 
 fn make_message(id: &str, sender: &str, content: &str) -> Message {
     Message {
@@ -9,8 +9,11 @@ fn make_message(id: &str, sender: &str, content: &str) -> Message {
         timestamp: 1000,
         channel: Some("#general".to_string()),
         reply_to: None,
+        thread_id: None,
         media: None,
         is_direct: false,
+        message_type: MessageType::Text,
+        edited_timestamp: None,
         reactions: None,
     }
 }
@@ -125,6 +128,7 @@ async fn console_send_with_options_delegates_to_send_message() {
         recipient: "#channel",
         content: "test message",
         reply_to: Some("123"),
+        thread_id: None,
         silent: false,
         media: None,
     };
@@ -151,8 +155,11 @@ async fn console_enqueue_direct_message() {
         timestamp: 2000,
         channel: None,
         reply_to: None,
+        thread_id: None,
         media: None,
         is_direct: true,
+        message_type: MessageType::Text,
+        edited_timestamp: None,
         reactions: None,
     });
     let msgs = m.receive_messages().await.unwrap();
