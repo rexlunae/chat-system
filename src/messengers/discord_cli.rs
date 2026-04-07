@@ -158,7 +158,6 @@ impl DiscordCliMessenger {
                 .await
                 .insert(channel_id.to_string(), latest.id.clone());
         }
-        }
 
         Ok(messages)
     }
