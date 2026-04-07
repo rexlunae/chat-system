@@ -137,6 +137,50 @@ pub trait Messenger: Send + Sync {
     async fn search_messages(&self, _query: SearchQuery) -> Result<Vec<Message>> {
         Ok(Vec::new())
     }
+
+    /// Edit a previously sent message.
+    ///
+    /// `message_id` is the platform message ID, `channel` is the channel or
+    /// conversation it belongs to, and `new_content` is the replacement text.
+    ///
+    /// Platforms that do not support editing return `Ok(())` silently via
+    /// this default implementation.
+    async fn edit_message(
+        &self,
+        _message_id: &str,
+        _channel: &str,
+        _new_content: &str,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    /// Delete a previously sent message.
+    ///
+    /// Platforms that do not support deletion return `Ok(())` silently.
+    async fn delete_message(&self, _message_id: &str, _channel: &str) -> Result<()> {
+        Ok(())
+    }
+
+    /// Pin a message in a channel.
+    ///
+    /// Platforms that do not support pinning return `Ok(())` silently.
+    async fn pin_message(&self, _message_id: &str, _channel: &str) -> Result<()> {
+        Ok(())
+    }
+
+    /// Unpin a message in a channel.
+    ///
+    /// Platforms that do not support pinning return `Ok(())` silently.
+    async fn unpin_message(&self, _message_id: &str, _channel: &str) -> Result<()> {
+        Ok(())
+    }
+
+    /// Get the list of members in a channel or conversation.
+    ///
+    /// Returns an empty `Vec` on platforms that do not expose membership lists.
+    async fn get_channel_members(&self, _channel: &str) -> Result<Vec<String>> {
+        Ok(Vec::new())
+    }
 }
 
 /// Manages multiple [`Messenger`] instances.

@@ -1,5 +1,6 @@
 //! Slack messenger — Web API implementation.
 
+use crate::message::MessageType;
 use crate::{Message, Messenger};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
@@ -151,8 +152,11 @@ impl SlackMessenger {
                             .as_str()
                             .filter(|thread_ts| *thread_ts != ts)
                             .map(ToString::to_string),
+                        thread_id: None,
                         media: None,
                         is_direct: false,
+                        message_type: MessageType::Text,
+                        edited_timestamp: None,
                         reactions: None,
                     },
                 ));

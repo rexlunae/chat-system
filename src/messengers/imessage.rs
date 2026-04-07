@@ -1,5 +1,6 @@
 //! iMessage messenger — macOS Messages.app integration.
 
+use crate::message::MessageType;
 use crate::{Message, Messenger};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -97,8 +98,11 @@ impl IMessageMessenger {
                 timestamp: unix_ts,
                 channel: if channel_id.is_empty() { None } else { Some(channel_id) },
                 reply_to: if reply_to.is_empty() { None } else { Some(reply_to) },
+                thread_id: None,
                 media: None,
                 is_direct: display_name.is_empty(),
+                message_type: MessageType::Text,
+                edited_timestamp: None,
                 reactions: None,
             });
         }

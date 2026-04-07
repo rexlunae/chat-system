@@ -1,5 +1,6 @@
 //! Signal messenger — signal-cli subprocess wrapper.
 
+use crate::message::MessageType;
 use crate::{Message, Messenger};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
@@ -100,8 +101,11 @@ impl SignalCliMessenger {
             timestamp,
             channel: channel.clone(),
             reply_to,
+            thread_id: None,
             media: None,
             is_direct: channel.is_none(),
+            message_type: MessageType::Text,
+            edited_timestamp: None,
             reactions: None,
         })
     }

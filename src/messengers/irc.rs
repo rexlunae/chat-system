@@ -4,6 +4,7 @@
 //! - Unencrypted: standard TCP on port 6667
 //! - Encrypted (TLS): secure IRC on port 6697 (RFC 7194)
 
+use crate::message::MessageType;
 use crate::{Message, Messenger};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
@@ -192,8 +193,11 @@ impl Messenger for IrcMessenger {
                                 timestamp: chrono::Utc::now().timestamp(),
                                 channel: Some(channel),
                                 reply_to: None,
+                                thread_id: None,
                                 media: None,
                                 is_direct: false,
+                                message_type: MessageType::Text,
+                                edited_timestamp: None,
                                 reactions: None,
                             });
                         }

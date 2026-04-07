@@ -1,4 +1,4 @@
-use chat_system::{MediaAttachment, Message, Reaction, SendOptions};
+use chat_system::{MediaAttachment, Message, MessageType, Reaction, SendOptions};
 
 #[test]
 fn message_creation() {
@@ -9,8 +9,11 @@ fn message_creation() {
         timestamp: 1_000_000,
         channel: Some("#general".to_string()),
         reply_to: None,
+        thread_id: None,
         media: None,
         is_direct: false,
+        message_type: MessageType::Text,
+        edited_timestamp: None,
         reactions: None,
     };
     assert_eq!(msg.id, "123");
@@ -32,8 +35,11 @@ fn message_clone() {
         timestamp: 1000,
         channel: None,
         reply_to: None,
+        thread_id: None,
         media: None,
         is_direct: false,
+        message_type: MessageType::Text,
+        edited_timestamp: None,
         reactions: None,
     };
     let cloned = msg.clone();
@@ -52,8 +58,11 @@ fn message_serialization_roundtrip() {
         timestamp: 2000,
         channel: None,
         reply_to: Some("123".to_string()),
+        thread_id: None,
         media: None,
         is_direct: true,
+        message_type: MessageType::Text,
+        edited_timestamp: None,
         reactions: None,
     };
     let json = serde_json::to_string(&msg).unwrap();
@@ -87,13 +96,17 @@ fn message_with_media() {
         timestamp: 3000,
         channel: Some("#media".to_string()),
         reply_to: None,
+        thread_id: None,
         media: Some(vec![MediaAttachment {
             url: Some("https://example.com/file.pdf".to_string()),
             path: None,
             mime_type: Some("application/pdf".to_string()),
             filename: Some("file.pdf".to_string()),
+            size: None,
         }]),
         is_direct: false,
+        message_type: MessageType::Text,
+        edited_timestamp: None,
         reactions: None,
     };
     let media = msg.media.as_ref().unwrap();
@@ -109,6 +122,7 @@ fn media_attachment_creation() {
         path: Some("/tmp/img.png".to_string()),
         mime_type: Some("image/png".to_string()),
         filename: Some("img.png".to_string()),
+        size: None,
     };
     assert_eq!(a.url, Some("https://example.com/img.png".to_string()));
     assert_eq!(a.path, Some("/tmp/img.png".to_string()));
@@ -123,6 +137,7 @@ fn media_attachment_all_optional_fields() {
         path: None,
         mime_type: None,
         filename: None,
+        size: None,
     };
     assert!(a.url.is_none());
     assert!(a.path.is_none());
@@ -137,6 +152,7 @@ fn media_attachment_serialization_roundtrip() {
         path: None,
         mime_type: Some("image/png".to_string()),
         filename: Some("img.png".to_string()),
+        size: None,
     };
     let json = serde_json::to_string(&a).unwrap();
     let de: MediaAttachment = serde_json::from_str(&json).unwrap();
@@ -165,6 +181,7 @@ fn send_options_full() {
         recipient: "#channel",
         content: "Hello channel!",
         reply_to: Some("123"),
+        thread_id: None,
         silent: true,
         media: Some("https://example.com/img.png"),
     };
@@ -184,8 +201,11 @@ fn message_is_direct_flag() {
         timestamp: 4000,
         channel: None,
         reply_to: None,
+        thread_id: None,
         media: None,
         is_direct: true,
+        message_type: MessageType::Text,
+        edited_timestamp: None,
         reactions: None,
     };
     assert!(dm.is_direct);
@@ -236,8 +256,11 @@ fn message_with_reactions() {
         timestamp: 5000,
         channel: Some("#general".to_string()),
         reply_to: None,
+        thread_id: None,
         media: None,
         is_direct: false,
+        message_type: MessageType::Text,
+        edited_timestamp: None,
         reactions: Some(vec![
             Reaction {
                 emoji: "👍".to_string(),
@@ -268,8 +291,11 @@ fn message_reactions_serialization_roundtrip() {
         timestamp: 6000,
         channel: None,
         reply_to: None,
+        thread_id: None,
         media: None,
         is_direct: false,
+        message_type: MessageType::Text,
+        edited_timestamp: None,
         reactions: Some(vec![Reaction {
             emoji: "❤️".to_string(),
             count: 3,

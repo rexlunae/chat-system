@@ -1,5 +1,6 @@
 //! Matrix messenger backed by the Matrix Client-Server HTTP API.
 
+use crate::message::MessageType;
 use crate::{Message, Messenger};
 use anyhow::{anyhow, ensure, Context, Result};
 use async_trait::async_trait;
@@ -191,8 +192,11 @@ impl MatrixMessenger {
                         .relates_to
                         .and_then(|r| r.in_reply_to)
                         .map(|r| r.event_id),
+                    thread_id: None,
                     media: None,
                     is_direct: false,
+                    message_type: MessageType::Text,
+                    edited_timestamp: None,
                     reactions: None,
                 });
             }

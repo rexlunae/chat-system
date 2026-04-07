@@ -1,5 +1,6 @@
 //! Telegram messenger — Bot API polling implementation.
 
+use crate::message::MessageType;
 use crate::{Message, Messenger};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -128,8 +129,11 @@ impl Messenger for TelegramMessenger {
                         timestamp,
                         channel: chat_id,
                         reply_to: None,
+                        thread_id: None,
                         media: None,
                         is_direct: false,
+                        message_type: MessageType::Text,
+                        edited_timestamp: None,
                         reactions: None,
                     });
                 }

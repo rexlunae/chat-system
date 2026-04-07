@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use chat_system::{ChatServer, Message};
+use chat_system::{ChatServer, Message, MessageType};
 use std::sync::{Arc, Mutex};
 
 // ─── Mock implementation of ChatServer ───────────────────────────────────────
@@ -47,8 +47,11 @@ impl ChatServer for MockChatServer {
             timestamp: 1_000,
             channel: Some("test-channel".to_string()),
             reply_to: None,
+            thread_id: None,
             media: None,
             is_direct: false,
+            message_type: MessageType::Text,
+            edited_timestamp: None,
             reactions: None,
         };
         self.processed.lock().unwrap().push(msg.clone());

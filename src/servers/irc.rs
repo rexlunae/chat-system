@@ -1,6 +1,6 @@
 //! IRC listener implementation.
 
-use crate::message::Message;
+use crate::message::{Message, MessageType};
 use crate::server::{ChatListener, MessageHandler};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -87,8 +87,11 @@ pub(super) async fn handle_connection(
                     timestamp: chrono::Utc::now().timestamp(),
                     channel: Some(target.to_string()),
                     reply_to: None,
+                    thread_id: None,
                     media: None,
                     is_direct: !target.starts_with('#'),
+                    message_type: MessageType::Text,
+                    edited_timestamp: None,
                     reactions: None,
                 };
                 if let Ok(Some(reply)) = handler(msg).await {
