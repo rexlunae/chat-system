@@ -405,9 +405,6 @@ mod tests {
         );
         assert_eq!(recommended_strategy("irc"), StreamStrategy::Chunked);
         assert_eq!(recommended_strategy("imessage"), StreamStrategy::BufferAll);
-        assert_eq!(
-            recommended_strategy("unknown"),
-            StreamStrategy::BufferAll
-        );
+        assert_eq!(recommended_strategy("unknown"), StreamStrategy::BufferAll);
     }
 }

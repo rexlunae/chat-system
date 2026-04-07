@@ -137,12 +137,9 @@ impl GroupChatConfig {
             ActivationMode::Mention => {
                 let lower = message.to_lowercase();
                 let name_lower = agent_name.to_lowercase();
-                lower.contains(&name_lower)
-                    || lower.contains(&format!("@{}", name_lower))
+                lower.contains(&name_lower) || lower.contains(&format!("@{}", name_lower))
             }
-            ActivationMode::Prefix => {
-                message.starts_with(&self.prefix)
-            }
+            ActivationMode::Prefix => message.starts_with(&self.prefix),
         }
     }
 
