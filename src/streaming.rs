@@ -14,21 +14,16 @@ use std::time::{Duration, Instant};
 use tracing::debug;
 
 /// Streaming strategy for a messenger.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum StreamStrategy {
     /// Send initial message, then edit in place as tokens arrive.
+    #[default]
     EditInPlace,
     /// Accumulate tokens and send chunks at intervals.
     Chunked,
     /// Wait for full response before sending (no streaming).
     BufferAll,
-}
-
-impl Default for StreamStrategy {
-    fn default() -> Self {
-        Self::EditInPlace
-    }
 }
 
 /// Configuration for messenger streaming.

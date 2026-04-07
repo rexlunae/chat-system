@@ -12,12 +12,13 @@ use serde::{Deserialize, Serialize};
 use tracing::debug;
 
 /// How the agent is activated in a group chat.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ActivationMode {
     /// Always respond to every message in the group.
     Always,
     /// Only respond when mentioned by name or @-tag.
+    #[default]
     Mention,
     /// Only respond when a specific prefix/command is used (e.g., "!claw").
     Prefix,
@@ -25,28 +26,17 @@ pub enum ActivationMode {
     Never,
 }
 
-impl Default for ActivationMode {
-    fn default() -> Self {
-        Self::Mention
-    }
-}
-
 /// How group conversations are isolated from each other.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum IsolationMode {
     /// Each group gets its own conversation history and context.
+    #[default]
     PerGroup,
     /// All groups share the same conversation history.
     Shared,
     /// Each user in each group gets their own context.
     PerUser,
-}
-
-impl Default for IsolationMode {
-    fn default() -> Self {
-        Self::PerGroup
-    }
 }
 
 /// Group chat configuration for a messenger.
