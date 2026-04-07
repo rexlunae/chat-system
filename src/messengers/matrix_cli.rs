@@ -501,8 +501,7 @@ impl MatrixCliMessenger {
         //
         // This prevents the token from advancing when sync only contains
         // events for non-allowed rooms, which would cause us to miss messages.
-        let should_advance_token =
-            !messages.is_empty() || allowed_rooms_in_sync || !has_room_filters;
+        let should_advance_token = true;
 
         if should_advance_token {
             let mut token = self.sync_token.lock().await;
