@@ -13,8 +13,8 @@
 //!   cargo run --example generic_multi_platform
 
 use chat_system::{
-    config::{ConsoleConfig, MessengerConfig},
     GenericMessenger, Messenger, MessengerManager, PresenceStatus, SearchQuery,
+    config::{ConsoleConfig, MessengerConfig},
 };
 
 #[tokio::main]

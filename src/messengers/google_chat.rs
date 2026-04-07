@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::DateTime;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::Mutex;
 
 pub struct GoogleChatMessenger {
@@ -80,7 +80,9 @@ impl GoogleChatMessenger {
                 api_base_url,
                 ..
             } => (token, api_base_url),
-            GoogleChatMode::Webhook { .. } => anyhow::bail!("Google Chat API requested in webhook mode"),
+            GoogleChatMode::Webhook { .. } => {
+                anyhow::bail!("Google Chat API requested in webhook mode")
+            }
         };
 
         let response = self
@@ -110,7 +112,9 @@ impl GoogleChatMessenger {
                 api_base_url,
                 ..
             } => (token, api_base_url),
-            GoogleChatMode::Webhook { .. } => anyhow::bail!("Google Chat API requested in webhook mode"),
+            GoogleChatMode::Webhook { .. } => {
+                anyhow::bail!("Google Chat API requested in webhook mode")
+            }
         };
 
         let response = self
@@ -128,7 +132,11 @@ impl GoogleChatMessenger {
             .context("Failed to read Google Chat API response body")?;
 
         if !status.is_success() {
-            anyhow::bail!("Google Chat API request failed {}: {}", status, response_body);
+            anyhow::bail!(
+                "Google Chat API request failed {}: {}",
+                status,
+                response_body
+            );
         }
 
         if response_body.trim().is_empty() {
@@ -160,7 +168,9 @@ impl GoogleChatMessenger {
             GoogleChatMode::Webhook { .. } => None,
         };
 
-        let data = self.api_get_json(Self::space_messages_path(&space_id)).await?;
+        let data = self
+            .api_get_json(Self::space_messages_path(&space_id))
+            .await?;
         let mut messages = Vec::new();
         let mut newest_name = last_seen.clone();
 

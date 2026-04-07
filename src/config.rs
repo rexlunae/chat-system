@@ -274,7 +274,9 @@ impl MessengerConfig {
                 (_, Some(token), Some(space_id)) => {
                     Box::new(GoogleChatMessenger::new_api(&c.name, token, space_id))
                 }
-                (Some(webhook_url), _, _) => Box::new(GoogleChatMessenger::new(&c.name, webhook_url)),
+                (Some(webhook_url), _, _) => {
+                    Box::new(GoogleChatMessenger::new(&c.name, webhook_url))
+                }
                 _ => anyhow::bail!(
                     "Google Chat config requires either webhook_url or token + space_id"
                 ),
@@ -585,12 +587,7 @@ impl Messenger for GenericMessenger {
         }
     }
 
-    async fn edit_message(
-        &self,
-        message_id: &str,
-        channel: &str,
-        new_content: &str,
-    ) -> Result<()> {
+    async fn edit_message(&self, message_id: &str, channel: &str, new_content: &str) -> Result<()> {
         if let Some(inner) = &self.inner {
             inner.edit_message(message_id, channel, new_content).await
         } else {

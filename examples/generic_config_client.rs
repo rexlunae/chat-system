@@ -8,8 +8,8 @@
 //!   cargo run --example generic_config_client
 
 use chat_system::{
-    config::{ConsoleConfig, IrcConfig, IrcListenerConfig, MessengerConfig, ServerConfig},
     GenericMessenger, GenericServer, Messenger, MessengerManager, PresenceStatus, SearchQuery,
+    config::{ConsoleConfig, IrcConfig, IrcListenerConfig, MessengerConfig, ServerConfig},
 };
 
 #[tokio::main]

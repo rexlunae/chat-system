@@ -2,12 +2,12 @@
 
 use crate::message::MessageType;
 use crate::{Message, Messenger};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use chrono::DateTime;
 use futures::{SinkExt, StreamExt};
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 use tokio::{sync::Mutex, task::JoinHandle, time::Duration};
 use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
@@ -48,7 +48,11 @@ impl DiscordMessenger {
     }
 
     fn api_url(&self, path: impl AsRef<str>) -> String {
-        format!("{}/{}", self.api_base_url.trim_end_matches('/'), path.as_ref().trim_start_matches('/'))
+        format!(
+            "{}/{}",
+            self.api_base_url.trim_end_matches('/'),
+            path.as_ref().trim_start_matches('/')
+        )
     }
 
     fn authorization_header(&self) -> String {
@@ -74,7 +78,10 @@ impl DiscordMessenger {
             anyhow::bail!("Discord gateway lookup failed {}: {}", status, body);
         }
 
-        let payload: Value = response.json().await.context("Invalid Discord gateway response")?;
+        let payload: Value = response
+            .json()
+            .await
+            .context("Invalid Discord gateway response")?;
         let gateway_url = payload["url"]
             .as_str()
             .ok_or_else(|| anyhow!("Discord gateway response missing url"))?;
@@ -97,7 +104,8 @@ impl DiscordMessenger {
             WsMessage::Text(text) => text.to_string(),
             other => anyhow::bail!("Unexpected Discord gateway HELLO frame: {other:?}"),
         };
-        let hello_payload: Value = serde_json::from_str(&hello_text).context("Invalid Discord HELLO payload")?;
+        let hello_payload: Value =
+            serde_json::from_str(&hello_text).context("Invalid Discord HELLO payload")?;
         let heartbeat_interval = hello_payload["d"]["heartbeat_interval"]
             .as_u64()
             .ok_or_else(|| anyhow!("Discord HELLO missing heartbeat_interval"))?;

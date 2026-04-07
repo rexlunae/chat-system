@@ -1,5 +1,5 @@
-use chat_system::messengers::IrcMessenger;
 use chat_system::Messenger;
+use chat_system::messengers::IrcMessenger;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 

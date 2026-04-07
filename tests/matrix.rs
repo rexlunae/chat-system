@@ -1,7 +1,7 @@
 #![cfg(feature = "matrix")]
 
-use chat_system::messengers::MatrixMessenger;
 use chat_system::Messenger;
+use chat_system::messengers::MatrixMessenger;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -66,7 +66,12 @@ async fn start_mock_matrix_server() -> String {
 
 #[tokio::test]
 async fn matrix_name_and_type() {
-    let m = MatrixMessenger::new("matrix", "http://localhost:8008", MOCK_MATRIX_USER_ID, "secret");
+    let m = MatrixMessenger::new(
+        "matrix",
+        "http://localhost:8008",
+        MOCK_MATRIX_USER_ID,
+        "secret",
+    );
     assert_eq!(m.name(), "matrix");
     assert_eq!(m.messenger_type(), "matrix");
 }
@@ -84,7 +89,10 @@ async fn matrix_send_message_joins_alias_and_returns_event_id() {
     let homeserver = start_mock_matrix_server().await;
     let mut m = MatrixMessenger::new("matrix", homeserver, MOCK_MATRIX_USER_ID, "secret");
     m.initialize().await.unwrap();
-    let id = m.send_message(MOCK_MATRIX_ROOM_ALIAS, "hello matrix").await.unwrap();
+    let id = m
+        .send_message(MOCK_MATRIX_ROOM_ALIAS, "hello matrix")
+        .await
+        .unwrap();
     assert_eq!(id, "$sent-event");
 }
 

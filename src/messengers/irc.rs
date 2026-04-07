@@ -189,12 +189,12 @@ impl IrcMessenger {
         if trimmed.is_empty() {
             return false;
         }
-        let (command, args) = trimmed
-            .split_once(' ')
-            .unwrap_or((trimmed, ""));
+        let (command, args) = trimmed.split_once(' ').unwrap_or((trimmed, ""));
         match command {
             "VERSION" => {
-                let _ = self.send_ctcp_reply(sender, "VERSION", &self.ctcp_version).await;
+                let _ = self
+                    .send_ctcp_reply(sender, "VERSION", &self.ctcp_version)
+                    .await;
                 true
             }
             "PING" => {

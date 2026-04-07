@@ -13,9 +13,9 @@
 //! cargo run --example irc_client
 //! ```
 
+use chat_system::ChatServer;
 use chat_system::server::Server;
 use chat_system::servers::IrcListener;
-use chat_system::ChatServer;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

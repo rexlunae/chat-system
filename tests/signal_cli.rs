@@ -1,7 +1,7 @@
 #![cfg(feature = "signal-cli")]
 
-use chat_system::messengers::SignalCliMessenger;
 use chat_system::Messenger;
+use chat_system::messengers::SignalCliMessenger;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};

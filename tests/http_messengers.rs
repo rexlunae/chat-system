@@ -1,15 +1,15 @@
+use chat_system::Messenger;
 use chat_system::messengers::{
     DiscordMessenger, GoogleChatMessenger, IMessageMessenger, SlackMessenger, TeamsMessenger,
     TelegramMessenger, WebhookMessenger,
 };
-use chat_system::Messenger;
 use futures::{SinkExt, StreamExt};
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 use tokio_tungstenite::{accept_async, tungstenite::Message as WsMessage};
 
 const MOCK_UNUSED_HTTP_URL: &str = "http://placeholder.invalid";
@@ -29,7 +29,10 @@ async fn start_mock_http_server(status_code: u16, body: &'static str) -> String 
                 let status_text = if status_code < 400 { "OK" } else { "Error" };
                 let response = format!(
                     "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                    status_code, status_text, body.len(), body
+                    status_code,
+                    status_text,
+                    body.len(),
+                    body
                 );
                 let _ = stream.write_all(response.as_bytes()).await;
             });
@@ -143,19 +146,20 @@ async fn start_mock_discord_http_server(gateway_url: String) -> (String, Arc<Moc
                 let mut parts = request_line.split_whitespace();
                 let method = parts.next().unwrap_or_default();
                 let path = parts.next().unwrap_or_default();
-                let body = request
-                    .split("\r\n\r\n")
-                    .nth(1)
-                    .unwrap_or_default();
+                let body = request.split("\r\n\r\n").nth(1).unwrap_or_default();
 
                 let (status_code, status_text, response_body) = match (method, path) {
-                    ("GET", "/users/@me") => (200, "OK", r#"{"id":"bot-1","username":"bot"}"#.to_string()),
+                    ("GET", "/users/@me") => {
+                        (200, "OK", r#"{"id":"bot-1","username":"bot"}"#.to_string())
+                    }
                     ("GET", "/gateway/bot") => (
                         200,
                         "OK",
                         serde_json::json!({ "url": gateway_url }).to_string(),
                     ),
-                    ("POST", path) if path.starts_with("/channels/") && path.ends_with("/messages") => {
+                    ("POST", path)
+                        if path.starts_with("/channels/") && path.ends_with("/messages") =>
+                    {
                         let channel = path
                             .trim_start_matches("/channels/")
                             .trim_end_matches("/messages")
@@ -166,7 +170,9 @@ async fn start_mock_discord_http_server(gateway_url: String) -> (String, Arc<Moc
                         state.sent_messages.lock().await.push((channel, content));
                         (200, "OK", r#"{"id":"discord-message-42"}"#.to_string())
                     }
-                    ("POST", path) if path.starts_with("/channels/") && path.ends_with("/typing") => {
+                    ("POST", path)
+                        if path.starts_with("/channels/") && path.ends_with("/typing") =>
+                    {
                         let channel = path
                             .trim_start_matches("/channels/")
                             .trim_end_matches("/typing")
@@ -248,7 +254,11 @@ async fn start_mock_slack_server() -> (String, Arc<MockSlackState>) {
                         let channel = payload["channel"].as_str().unwrap_or_default().to_string();
                         let text = payload["text"].as_str().unwrap_or_default().to_string();
                         state.sent_messages.lock().await.push((channel, text));
-                        (200, "OK", r#"{"ok":true,"ts":"1700000001.000100"}"#.to_string())
+                        (
+                            200,
+                            "OK",
+                            r#"{"ok":true,"ts":"1700000001.000100"}"#.to_string(),
+                        )
                     }
                     ("GET", path) if path.starts_with("/conversations.list") => (
                         200,
@@ -274,7 +284,11 @@ async fn start_mock_slack_server() -> (String, Arc<MockSlackState>) {
                             (200, "OK", r#"{"ok":true,"messages":[]}"#.to_string())
                         }
                     }
-                    _ => (404, "Not Found", r#"{"ok":false,"error":"not_found"}"#.to_string()),
+                    _ => (
+                        404,
+                        "Not Found",
+                        r#"{"ok":false,"error":"not_found"}"#.to_string(),
+                    ),
                 };
 
                 let response = format!(
@@ -323,30 +337,33 @@ async fn start_mock_teams_graph_server() -> (String, Arc<MockTeamsState>) {
                 let body = request.split("\r\n\r\n").nth(1).unwrap_or_default();
 
                 let (status_code, status_text, response_body) = match (method, path) {
-                    ("GET", "/me") => (200, "OK", r#"{"id":"bot-1","displayName":"Teams Bot"}"#.to_string()),
+                    ("GET", "/me") => (
+                        200,
+                        "OK",
+                        r#"{"id":"bot-1","displayName":"Teams Bot"}"#.to_string(),
+                    ),
                     ("POST", "/teams/team-1/channels/channel-123/messages") => {
                         let payload: Value = serde_json::from_str(body).unwrap_or(Value::Null);
-                        let content = payload["body"]["content"].as_str().unwrap_or_default().to_string();
-                        state.sent_messages.lock().await.push(("channel-123".to_string(), content));
+                        let content = payload["body"]["content"]
+                            .as_str()
+                            .unwrap_or_default()
+                            .to_string();
+                        state
+                            .sent_messages
+                            .lock()
+                            .await
+                            .push(("channel-123".to_string(), content));
                         (200, "OK", r#"{"id":"graph-message-3"}"#.to_string())
                     }
                     ("GET", "/teams/team-1/channels/channel-123/messages") => {
                         let mut requests = state.message_list_requests.lock().await;
                         *requests += 1;
 
-                        if *requests == 1 {
-                            (
-                                200,
-                                "OK",
-                                r#"{"value":[{"id":"graph-message-2","createdDateTime":"2024-01-01T00:00:02Z","body":{"content":"second teams message"},"from":{"user":{"displayName":"Bob"}}},{"id":"graph-message-1","createdDateTime":"2024-01-01T00:00:01Z","body":{"content":"first teams message"},"from":{"user":{"displayName":"Alice"}}}]}"#.to_string(),
-                            )
-                        } else {
-                            (
-                                200,
-                                "OK",
-                                r#"{"value":[{"id":"graph-message-2","createdDateTime":"2024-01-01T00:00:02Z","body":{"content":"second teams message"},"from":{"user":{"displayName":"Bob"}}},{"id":"graph-message-1","createdDateTime":"2024-01-01T00:00:01Z","body":{"content":"first teams message"},"from":{"user":{"displayName":"Alice"}}}]}"#.to_string(),
-                            )
-                        }
+                        (
+                            200,
+                            "OK",
+                            r#"{"value":[{"id":"graph-message-2","createdDateTime":"2024-01-01T00:00:02Z","body":{"content":"second teams message"},"from":{"user":{"displayName":"Bob"}}},{"id":"graph-message-1","createdDateTime":"2024-01-01T00:00:01Z","body":{"content":"first teams message"},"from":{"user":{"displayName":"Alice"}}}]}"#.to_string(),
+                        )
                     }
                     _ => (404, "Not Found", r#"{"error":"not found"}"#.to_string()),
                 };
@@ -368,13 +385,8 @@ async fn start_mock_teams_graph_server() -> (String, Arc<MockTeamsState>) {
 
 async fn create_initialized_graph_teams_messenger() -> (TeamsMessenger, Arc<MockTeamsState>) {
     let (graph_base_url, state) = start_mock_teams_graph_server().await;
-    let mut messenger = TeamsMessenger::new_graph(
-        "teams",
-        "fake-token",
-        "team-1",
-        "channel-123",
-    )
-    .with_graph_base_url(graph_base_url);
+    let mut messenger = TeamsMessenger::new_graph("teams", "fake-token", "team-1", "channel-123")
+        .with_graph_base_url(graph_base_url);
 
     messenger.initialize().await.unwrap();
     (messenger, state)
@@ -448,7 +460,8 @@ async fn start_mock_google_chat_api_server() -> (String, Arc<MockGoogleChatState
     (format!("http://127.0.0.1:{}", addr.port()), state)
 }
 
-async fn create_initialized_api_google_chat_messenger() -> (GoogleChatMessenger, Arc<MockGoogleChatState>) {
+async fn create_initialized_api_google_chat_messenger()
+-> (GoogleChatMessenger, Arc<MockGoogleChatState>) {
     let (api_base_url, state) = start_mock_google_chat_api_server().await;
     let mut messenger = GoogleChatMessenger::new_api("gchat", "fake-token", "space-123")
         .with_api_base_url(api_base_url);
@@ -479,7 +492,11 @@ async fn start_mock_telegram_server() -> (String, Arc<MockTelegramState>) {
                 let body = request.split("\r\n\r\n").nth(1).unwrap_or_default();
 
                 let (status_code, status_text, response_body) = match (method, path) {
-                    ("GET", "/getMe") => (200, "OK", r#"{"ok":true,"result":{"id":1,"username":"bot"}}"#.to_string()),
+                    ("GET", "/getMe") => (
+                        200,
+                        "OK",
+                        r#"{"ok":true,"result":{"id":1,"username":"bot"}}"#.to_string(),
+                    ),
                     ("POST", "/sendMessage") => {
                         let payload: Value = serde_json::from_str(body).unwrap_or(Value::Null);
                         let chat_id = match &payload["chat_id"] {
@@ -489,7 +506,11 @@ async fn start_mock_telegram_server() -> (String, Arc<MockTelegramState>) {
                         };
                         let text = payload["text"].as_str().unwrap_or_default().to_string();
                         state.sent_messages.lock().await.push((chat_id, text));
-                        (200, "OK", r#"{"ok":true,"result":{"message_id":99}}"#.to_string())
+                        (
+                            200,
+                            "OK",
+                            r#"{"ok":true,"result":{"message_id":99}}"#.to_string(),
+                        )
                     }
                     ("GET", path) if path.starts_with("/getUpdates") => {
                         state.update_requests.lock().await.push(path.to_string());
@@ -503,7 +524,11 @@ async fn start_mock_telegram_server() -> (String, Arc<MockTelegramState>) {
                             )
                         }
                     }
-                    _ => (404, "Not Found", r#"{"ok":false,"description":"not found"}"#.to_string()),
+                    _ => (
+                        404,
+                        "Not Found",
+                        r#"{"ok":false,"description":"not found"}"#.to_string(),
+                    ),
                 };
 
                 let response = format!(
@@ -523,7 +548,8 @@ async fn start_mock_telegram_server() -> (String, Arc<MockTelegramState>) {
 
 async fn create_initialized_telegram_messenger() -> (TelegramMessenger, Arc<MockTelegramState>) {
     let (api_base_url, state) = start_mock_telegram_server().await;
-    let mut messenger = TelegramMessenger::new("telegram", "fake-token").with_api_base_url(api_base_url);
+    let mut messenger =
+        TelegramMessenger::new("telegram", "fake-token").with_api_base_url(api_base_url);
 
     messenger.initialize().await.unwrap();
     (messenger, state)
@@ -634,11 +660,17 @@ async fn teams_send_message_success() {
 async fn teams_graph_send_message_posts_to_messages_endpoint() {
     let (messenger, state) = create_initialized_graph_teams_messenger().await;
 
-    let id = messenger.send_message("", "hello teams graph").await.unwrap();
+    let id = messenger
+        .send_message("", "hello teams graph")
+        .await
+        .unwrap();
 
     assert_eq!(id, "graph-message-3");
     let sent_messages = state.sent_messages.lock().await;
-    assert_eq!(sent_messages.as_slice(), &[("channel-123".to_string(), "hello teams graph".to_string())]);
+    assert_eq!(
+        sent_messages.as_slice(),
+        &[("channel-123".to_string(), "hello teams graph".to_string())]
+    );
 }
 
 #[tokio::test]
@@ -726,11 +758,17 @@ async fn google_chat_send_message_success() {
 async fn google_chat_api_send_message_posts_to_messages_endpoint() {
     let (messenger, state) = create_initialized_api_google_chat_messenger().await;
 
-    let id = messenger.send_message("", "hello google chat api").await.unwrap();
+    let id = messenger
+        .send_message("", "hello google chat api")
+        .await
+        .unwrap();
 
     assert_eq!(id, "spaces/space-123/messages/msg-3");
     let sent_messages = state.sent_messages.lock().await;
-    assert_eq!(sent_messages.as_slice(), &[("space-123".to_string(), "hello google chat api".to_string())]);
+    assert_eq!(
+        sent_messages.as_slice(),
+        &[("space-123".to_string(), "hello google chat api".to_string())]
+    );
 }
 
 #[tokio::test]
@@ -809,7 +847,10 @@ async fn discord_send_message_posts_to_channel_endpoint() {
 
     assert_eq!(message_id, "discord-message-42");
     let sent_messages = state.sent_messages.lock().await;
-    assert_eq!(sent_messages.as_slice(), &[("channel-123".to_string(), "hello discord".to_string())]);
+    assert_eq!(
+        sent_messages.as_slice(),
+        &[("channel-123".to_string(), "hello discord".to_string())]
+    );
 }
 
 #[tokio::test]
@@ -870,11 +911,17 @@ async fn telegram_initialize_sets_connected() {
 async fn telegram_send_message_posts_to_bot_api() {
     let (messenger, state) = create_initialized_telegram_messenger().await;
 
-    let message_id = messenger.send_message("12345", "hello telegram").await.unwrap();
+    let message_id = messenger
+        .send_message("12345", "hello telegram")
+        .await
+        .unwrap();
 
     assert_eq!(message_id, "99");
     let sent_messages = state.sent_messages.lock().await;
-    assert_eq!(sent_messages.as_slice(), &[("12345".to_string(), "hello telegram".to_string())]);
+    assert_eq!(
+        sent_messages.as_slice(),
+        &[("12345".to_string(), "hello telegram".to_string())]
+    );
 }
 
 #[tokio::test]
@@ -894,8 +941,16 @@ async fn telegram_receive_messages_tracks_offset_without_duplicates() {
     assert!(second_poll.is_empty());
 
     let update_requests = state.update_requests.lock().await;
-    assert!(update_requests.iter().any(|path| path == "/getUpdates?timeout=0"));
-    assert!(update_requests.iter().any(|path| path == "/getUpdates?offset=103&timeout=0"));
+    assert!(
+        update_requests
+            .iter()
+            .any(|path| path == "/getUpdates?timeout=0")
+    );
+    assert!(
+        update_requests
+            .iter()
+            .any(|path| path == "/getUpdates?offset=103&timeout=0")
+    );
 }
 
 #[tokio::test]
@@ -943,7 +998,10 @@ async fn slack_send_message_posts_to_chat_api() {
 
     assert_eq!(ts, "1700000001.000100");
     let sent_messages = state.sent_messages.lock().await;
-    assert_eq!(sent_messages.as_slice(), &[("C123".to_string(), "hello slack".to_string())]);
+    assert_eq!(
+        sent_messages.as_slice(),
+        &[("C123".to_string(), "hello slack".to_string())]
+    );
 }
 
 #[tokio::test]
@@ -963,8 +1021,16 @@ async fn slack_receive_messages_polls_history_without_duplicates() {
     assert!(second_poll.is_empty());
 
     let history_requests = state.history_requests.lock().await;
-    assert!(history_requests.iter().any(|path| path.contains("channel=C123") && path.contains("oldest=1700000002.000200")));
-    assert!(history_requests.iter().any(|path| path.contains("channel=D456") && path.contains("oldest=1700000003.000300")));
+    assert!(
+        history_requests
+            .iter()
+            .any(|path| path.contains("channel=C123") && path.contains("oldest=1700000002.000200"))
+    );
+    assert!(
+        history_requests
+            .iter()
+            .any(|path| path.contains("channel=D456") && path.contains("oldest=1700000003.000300"))
+    );
 }
 
 #[tokio::test]

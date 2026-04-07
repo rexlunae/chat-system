@@ -2,7 +2,7 @@
 
 use crate::message::MessageType;
 use crate::{Message, Messenger};
-use anyhow::{anyhow, ensure, Context, Result};
+use anyhow::{Context, Result, anyhow, ensure};
 use async_trait::async_trait;
 use reqwest::{Client, Url};
 use serde::Deserialize;
@@ -171,7 +171,10 @@ impl MatrixMessenger {
             anyhow::bail!("Matrix sync failed {}: {}", status, body);
         }
 
-        let sync: SyncResponse = response.json().await.context("Invalid Matrix sync response")?;
+        let sync: SyncResponse = response
+            .json()
+            .await
+            .context("Invalid Matrix sync response")?;
         *self.sync_token.lock().await = Some(sync.next_batch);
 
         let mut messages = Vec::new();
@@ -229,7 +232,10 @@ impl MatrixMessenger {
             room_id: String,
         }
 
-        let join: JoinResponse = response.json().await.context("Invalid Matrix join response")?;
+        let join: JoinResponse = response
+            .json()
+            .await
+            .context("Invalid Matrix join response")?;
         Ok(join.room_id)
     }
 }
@@ -255,7 +261,7 @@ impl Messenger for MatrixMessenger {
 
         let response = self
             .client
-            .post(self.client_api_url(&["login"])? )
+            .post(self.client_api_url(&["login"])?)
             .json(&json!({
                 "type": "m.login.password",
                 "identifier": {
@@ -275,7 +281,10 @@ impl Messenger for MatrixMessenger {
             anyhow::bail!("Matrix login failed {}: {}", status, body);
         }
 
-        let login: LoginResponse = response.json().await.context("Invalid Matrix login response")?;
+        let login: LoginResponse = response
+            .json()
+            .await
+            .context("Invalid Matrix login response")?;
         self.access_token = Some(login.access_token);
         self.user_id = Some(login.user_id);
 
@@ -292,13 +301,7 @@ impl Messenger for MatrixMessenger {
 
         let response = self
             .client
-            .put(self.client_api_url(&[
-                "rooms",
-                &room_id,
-                "send",
-                "m.room.message",
-                &txn_id,
-            ])?)
+            .put(self.client_api_url(&["rooms", &room_id, "send", "m.room.message", &txn_id])?)
             .bearer_auth(self.access_token()?)
             .json(&json!({
                 "msgtype": "m.text",
@@ -319,7 +322,10 @@ impl Messenger for MatrixMessenger {
             event_id: String,
         }
 
-        let send: SendResponse = response.json().await.context("Invalid Matrix send response")?;
+        let send: SendResponse = response
+            .json()
+            .await
+            .context("Invalid Matrix send response")?;
         Ok(send.event_id)
     }
 
@@ -335,7 +341,7 @@ impl Messenger for MatrixMessenger {
         if let Some(token) = self.access_token.as_deref() {
             let response = self
                 .client
-                .post(self.client_api_url(&["logout"])? )
+                .post(self.client_api_url(&["logout"])?)
                 .bearer_auth(token)
                 .send()
                 .await;
@@ -402,12 +408,7 @@ mod tests {
 
     #[test]
     fn validate_config_accepts_non_empty_values() {
-        let messenger = MatrixMessenger::new(
-            "matrix",
-            "https://matrix.example",
-            "bot",
-            "secret",
-        );
+        let messenger = MatrixMessenger::new("matrix", "https://matrix.example", "bot", "secret");
         assert!(messenger.validate_config().is_ok());
     }
 }

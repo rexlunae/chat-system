@@ -3,17 +3,21 @@
 #[cfg(target_os = "macos")]
 use crate::message::MessageType;
 use crate::{Message, Messenger};
-use anyhow::{anyhow, Result};
+use anyhow::Result;
+#[cfg(target_os = "macos")]
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use std::path::PathBuf;
+#[cfg(target_os = "macos")]
 use tokio::sync::Mutex;
 
 #[cfg(target_os = "macos")]
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 pub struct IMessageMessenger {
     name: String,
     chat_db_path: PathBuf,
+    #[cfg(target_os = "macos")]
     last_seen_rowid: Mutex<Option<i64>>,
     connected: bool,
 }
@@ -23,6 +27,7 @@ impl IMessageMessenger {
         Self {
             name: name.into(),
             chat_db_path: default_chat_db_path(),
+            #[cfg(target_os = "macos")]
             last_seen_rowid: Mutex::new(None),
             connected: false,
         }
@@ -42,7 +47,11 @@ impl IMessageMessenger {
     }
 
     #[cfg(target_os = "macos")]
-    fn fetch_messages(path: &PathBuf, since_rowid: i64, own_name: &str) -> Result<(Vec<Message>, Option<i64>)> {
+    fn fetch_messages(
+        path: &PathBuf,
+        since_rowid: i64,
+        own_name: &str,
+    ) -> Result<(Vec<Message>, Option<i64>)> {
         let conn = Connection::open(path)
             .with_context(|| format!("Failed to open iMessage database at {}", path.display()))?;
 
@@ -97,8 +106,16 @@ impl IMessageMessenger {
                 },
                 content: text,
                 timestamp: unix_ts,
-                channel: if channel_id.is_empty() { None } else { Some(channel_id) },
-                reply_to: if reply_to.is_empty() { None } else { Some(reply_to) },
+                channel: if channel_id.is_empty() {
+                    None
+                } else {
+                    Some(channel_id)
+                },
+                reply_to: if reply_to.is_empty() {
+                    None
+                } else {
+                    Some(reply_to)
+                },
                 thread_id: None,
                 media: None,
                 is_direct: display_name.is_empty(),
@@ -131,7 +148,10 @@ end tell"#,
             .context("Failed to launch osascript for iMessage send")?;
 
         if output.status.success() {
-            Ok(format!("imessage:{}", chrono::Utc::now().timestamp_millis()))
+            Ok(format!(
+                "imessage:{}",
+                chrono::Utc::now().timestamp_millis()
+            ))
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
             anyhow::bail!("iMessage AppleScript failed: {}", stderr.trim());
@@ -230,6 +250,7 @@ fn default_chat_db_path() -> PathBuf {
         .join("chat.db")
 }
 
+#[cfg(target_os = "macos")]
 fn escape_applescript_string(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
 }
@@ -239,6 +260,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn escape_applescript_quotes_and_backslashes() {
         let escaped = escape_applescript_string(r#"a\b"c"#);
         assert_eq!(escaped, r#"a\\b\"c"#);
