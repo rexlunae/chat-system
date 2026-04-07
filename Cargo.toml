@@ -1,6 +1,6 @@
 [package]
 name = "chat-system"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 rust-version = "1.86"
 description = "A multi-protocol async chat crate — single interface for IRC, Matrix, Discord, Telegram, Slack, Signal, WhatsApp, and more"
