@@ -25,6 +25,11 @@ mod matrix;
 #[cfg(feature = "matrix")]
 pub use matrix::MatrixMessenger;
 
+#[cfg(feature = "matrix-cli")]
+mod matrix_cli;
+#[cfg(feature = "matrix-cli")]
+pub use matrix_cli::{MatrixCliMessenger, MatrixDmConfig};
+
 #[cfg(feature = "signal-cli")]
 mod signal_cli;
 #[cfg(feature = "signal-cli")]
@@ -34,3 +39,18 @@ pub use signal_cli::SignalCliMessenger;
 mod whatsapp;
 #[cfg(feature = "whatsapp")]
 pub use whatsapp::WhatsAppMessenger;
+
+#[cfg(feature = "telegram-cli")]
+mod telegram_cli;
+#[cfg(feature = "telegram-cli")]
+pub use telegram_cli::TelegramCliMessenger;
+
+#[cfg(feature = "discord-cli")]
+mod discord_cli;
+#[cfg(feature = "discord-cli")]
+pub use discord_cli::DiscordCliMessenger;
+
+#[cfg(feature = "slack-cli")]
+mod slack_cli;
+#[cfg(feature = "slack-cli")]
+pub use slack_cli::SlackCliMessenger;
