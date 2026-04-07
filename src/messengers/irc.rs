@@ -35,6 +35,7 @@ pub struct IrcMessenger {
     server: String,
     port: u16,
     nick: String,
+    password: Option<String>,
     channels: Vec<String>,
     use_tls: bool,
     connection: Option<IrcConnection>,
@@ -59,6 +60,7 @@ impl IrcMessenger {
             server: server.into(),
             port,
             nick: nick.into(),
+            password: None,
             channels: Vec::new(),
             use_tls: false,
             connection: None,
@@ -71,6 +73,13 @@ impl IrcMessenger {
 
     pub fn with_channels(mut self, channels: Vec<impl Into<String>>) -> Self {
         self.channels = channels.into_iter().map(|c| c.into()).collect();
+        self
+    }
+
+    /// Set the server password (sent via PASS command before NICK/USER).
+    /// This is used for server-level authentication, not NickServ.
+    pub fn with_password(mut self, password: impl Into<String>) -> Self {
+        self.password = Some(password.into());
         self
     }
 
@@ -240,6 +249,10 @@ impl Messenger for IrcMessenger {
         ));
 
         // Register with the server
+        // Send PASS before NICK/USER if a password is configured
+        if let Some(ref password) = self.password {
+            self.send_raw(&format!("PASS {}", password)).await?;
+        }
         self.send_raw(&format!("NICK {}", self.nick)).await?;
         self.send_raw(&format!("USER {} 0 * :{}", self.nick, self.nick))
             .await?;

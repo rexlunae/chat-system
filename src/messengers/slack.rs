@@ -12,6 +12,8 @@ use tokio::sync::Mutex;
 pub struct SlackMessenger {
     name: String,
     token: String,
+    app_token: Option<String>,
+    default_channel: Option<String>,
     api_base_url: String,
     client: Client,
     last_seen_ts: Mutex<HashMap<String, String>>,
@@ -23,11 +25,26 @@ impl SlackMessenger {
         Self {
             name: name.into(),
             token: token.into(),
+            app_token: None,
+            default_channel: None,
             api_base_url: "https://slack.com/api".to_string(),
             client: Client::new(),
             last_seen_ts: Mutex::new(HashMap::new()),
             connected: false,
         }
+    }
+
+    /// Set the app-level token for Socket Mode connections.
+    /// This token starts with `xapp-` and enables real-time event delivery.
+    pub fn with_app_token(mut self, token: impl Into<String>) -> Self {
+        self.app_token = Some(token.into());
+        self
+    }
+
+    /// Set a default channel to send messages to when no recipient is specified.
+    pub fn with_default_channel(mut self, channel: impl Into<String>) -> Self {
+        self.default_channel = Some(channel.into());
+        self
     }
 
     pub fn with_api_base_url(mut self, url: impl Into<String>) -> Self {

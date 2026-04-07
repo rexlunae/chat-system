@@ -27,6 +27,11 @@ enum TeamsMode {
         graph_base_url: String,
         last_seen_message_id: Mutex<Option<String>>,
     },
+    BotFramework {
+        app_id: String,
+        app_password: String,
+        service_url: Option<String>,
+    },
 }
 
 impl TeamsMessenger {
@@ -61,6 +66,33 @@ impl TeamsMessenger {
         }
     }
 
+    /// Create a Teams messenger using Bot Framework authentication.
+    ///
+    /// This mode uses the Azure Bot Service with app credentials for bidirectional
+    /// messaging. Unlike webhooks (send-only) or Graph API (requires user token),
+    /// Bot Framework allows the bot to receive and respond to messages.
+    ///
+    /// # Arguments
+    /// * `name` - Messenger instance name
+    /// * `app_id` - Azure Bot/App registration Application (client) ID
+    /// * `app_password` - Azure Bot/App registration client secret
+    pub fn with_bot_framework(
+        name: impl Into<String>,
+        app_id: impl Into<String>,
+        app_password: impl Into<String>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            mode: TeamsMode::BotFramework {
+                app_id: app_id.into(),
+                app_password: app_password.into(),
+                service_url: None,
+            },
+            client: Client::new(),
+            connected: false,
+        }
+    }
+
     pub fn with_graph_base_url(mut self, url: impl Into<String>) -> Self {
         if let TeamsMode::Graph { graph_base_url, .. } = &mut self.mode {
             *graph_base_url = url.into();
@@ -83,7 +115,7 @@ impl TeamsMessenger {
                 graph_base_url,
                 ..
             } => (token, graph_base_url),
-            TeamsMode::Webhook { .. } => anyhow::bail!("Teams Graph API requested in webhook mode"),
+            _ => anyhow::bail!("Teams Graph API requires Graph mode"),
         };
 
         let response = self
@@ -113,7 +145,7 @@ impl TeamsMessenger {
                 graph_base_url,
                 ..
             } => (token, graph_base_url),
-            TeamsMode::Webhook { .. } => anyhow::bail!("Teams Graph API requested in webhook mode"),
+            _ => anyhow::bail!("Teams Graph API requires Graph mode"),
         };
 
         let response = self
@@ -152,7 +184,7 @@ impl TeamsMessenger {
                 channel_id,
                 ..
             } => (team_id.clone(), channel_id.clone()),
-            TeamsMode::Webhook { .. } => return Ok(Vec::new()),
+            TeamsMode::Webhook { .. } | TeamsMode::BotFramework { .. } => return Ok(Vec::new()),
         };
 
         let last_seen = match &self.mode {
@@ -160,7 +192,7 @@ impl TeamsMessenger {
                 last_seen_message_id,
                 ..
             } => last_seen_message_id.lock().await.clone(),
-            TeamsMode::Webhook { .. } => None,
+            TeamsMode::Webhook { .. } | TeamsMode::BotFramework { .. } => None,
         };
 
         let data = self
@@ -248,8 +280,36 @@ impl Messenger for TeamsMessenger {
     }
 
     async fn initialize(&mut self) -> Result<()> {
-        if matches!(&self.mode, TeamsMode::Graph { .. }) {
-            self.graph_get_json("me").await?;
+        match &self.mode {
+            TeamsMode::Graph { .. } => {
+                self.graph_get_json("me").await?;
+            }
+            TeamsMode::BotFramework { app_id, app_password, .. } => {
+                // Validate Bot Framework credentials by getting an access token
+                // This uses the Azure Bot Service OAuth endpoint
+                let token_url = "https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token";
+                let response = self
+                    .client
+                    .post(token_url)
+                    .form(&[
+                        ("grant_type", "client_credentials"),
+                        ("client_id", app_id),
+                        ("client_secret", app_password),
+                        ("scope", "https://api.botframework.com/.default"),
+                    ])
+                    .send()
+                    .await
+                    .context("Failed to get Bot Framework token")?;
+
+                if !response.status().is_success() {
+                    let status = response.status();
+                    let text = response.text().await.unwrap_or_default();
+                    anyhow::bail!("Bot Framework authentication failed {}: {}", status, text);
+                }
+            }
+            TeamsMode::Webhook { .. } => {
+                // Webhooks don't require initialization
+            }
         }
         self.connected = true;
         Ok(())
@@ -297,6 +357,15 @@ impl Messenger for TeamsMessenger {
                     .await?;
 
                 Ok(data["id"].as_str().unwrap_or_default().to_string())
+            }
+            TeamsMode::BotFramework { .. } => {
+                // Bot Framework requires a service URL and conversation reference
+                // which are typically received from an incoming activity.
+                // For proactive messaging, you need to store conversation references.
+                anyhow::bail!(
+                    "Bot Framework proactive messaging requires a stored conversation reference. \
+                     Use receive_messages() to get incoming activities first."
+                )
             }
         }
     }
