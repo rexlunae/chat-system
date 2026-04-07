@@ -44,7 +44,7 @@ tracing = "0.1"
 reqwest = { version = "0.13", features = ["json", "rustls"], default-features = false }
 tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
 pulldown-cmark = { version = "0.13", default-features = false }
-rusqlite = { version = "0.39", features = ["bundled"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
 
 wa-rs = { version = "0.2", optional = true }
 wa-rs-core = { version = "0.2", optional = true }
@@ -97,6 +97,3 @@ path = "examples/generic_multi_platform.rs"
 [[example]]
 name = "generic_config_server"
 path = "examples/generic_config_server.rs"
-
-[patch.crates-io]
-diesel = { git = "https://github.com/diesel-rs/diesel.git", rev = "e3288eb517bdc497c00200773d2ca7a441a61941" }
