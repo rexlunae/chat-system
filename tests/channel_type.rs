@@ -151,8 +151,12 @@ fn telegram_capabilities() {
     assert!(d.capabilities.supports_otp);
     assert!(d.capabilities.supports_location);
     assert!(d.capabilities.supports_voice_ingest);
+    assert!(d.capabilities.supports_reactions);
+    assert!(d.capabilities.supports_editing);
+    assert!(d.capabilities.supports_deletion);
+    assert!(d.capabilities.supports_file_upload);
+    assert_eq!(d.capabilities.max_message_length, 4096);
     assert!(!d.capabilities.supports_threads);
-    assert!(!d.capabilities.supports_reactions);
     assert!(!d.capabilities.supports_interactive);
     assert_eq!(d.display_name, "Telegram");
     assert_eq!(d.channel_type, ChannelType::Telegram);
@@ -167,7 +171,11 @@ fn discord_capabilities() {
     assert!(d.capabilities.supports_outbound);
     assert!(d.capabilities.supports_streaming);
     assert!(d.capabilities.supports_location);
-    assert!(!d.capabilities.supports_reactions);
+    assert!(d.capabilities.supports_reactions);
+    assert!(d.capabilities.supports_editing);
+    assert!(d.capabilities.supports_deletion);
+    assert!(d.capabilities.supports_file_upload);
+    assert_eq!(d.capabilities.max_message_length, 2000);
 }
 
 #[test]
@@ -190,6 +198,10 @@ fn irc_capabilities() {
     assert!(!d.capabilities.supports_reactions);
     assert!(!d.capabilities.supports_streaming);
     assert!(!d.capabilities.supports_interactive);
+    assert!(!d.capabilities.supports_editing);
+    assert!(!d.capabilities.supports_deletion);
+    assert!(!d.capabilities.supports_file_upload);
+    assert_eq!(d.capabilities.max_message_length, 512);
 }
 
 #[test]
@@ -224,7 +236,10 @@ fn msteams_capabilities() {
     assert_eq!(d.capabilities.inbound_mode, InboundMode::Webhook);
     assert!(d.capabilities.supports_outbound);
     assert!(d.capabilities.supports_location);
-    assert!(!d.capabilities.supports_reactions);
+    assert!(d.capabilities.supports_reactions);
+    assert!(d.capabilities.supports_editing);
+    assert!(d.capabilities.supports_deletion);
+    assert!(d.capabilities.supports_file_upload);
 }
 
 #[test]

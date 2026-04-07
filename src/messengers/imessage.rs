@@ -1,8 +1,9 @@
 //! iMessage messenger — macOS Messages.app integration.
 
+#[cfg(target_os = "macos")]
 use crate::message::MessageType;
 use crate::{Message, Messenger};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use std::path::PathBuf;
 use tokio::sync::Mutex;
