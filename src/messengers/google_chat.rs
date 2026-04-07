@@ -28,6 +28,7 @@ enum GoogleChatMode {
         last_seen_message_name: Mutex<Option<String>>,
     },
     ServiceAccount {
+        /// Path to service account JSON file; retained for future full auth implementation.
         #[allow(dead_code)]
         credentials_path: String,
         spaces: Vec<String>,
