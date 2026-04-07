@@ -27,9 +27,7 @@ impl MediaType {
     /// Detect media type from file extension.
     pub fn from_extension(ext: &str) -> Self {
         match ext.to_lowercase().as_str() {
-            "jpg" | "jpeg" | "png" | "gif" | "webp" | "bmp" | "svg" | "tiff" | "ico" => {
-                Self::Image
-            }
+            "jpg" | "jpeg" | "png" | "gif" | "webp" | "bmp" | "svg" | "tiff" | "ico" => Self::Image,
             "mp3" | "wav" | "ogg" | "flac" | "m4a" | "aac" | "wma" | "opus" => Self::Audio,
             "mp4" | "webm" | "avi" | "mov" | "mkv" | "flv" | "wmv" => Self::Video,
             "pdf" | "doc" | "docx" | "txt" | "rtf" | "odt" => Self::Document,
@@ -142,14 +140,11 @@ pub struct ProcessedMedia {
 
 /// Check if a file exceeds size limits.
 pub fn check_size_limit(path: &Path, config: &MediaConfig) -> Result<(), String> {
-    let metadata = std::fs::metadata(path)
-        .map_err(|e| format!("Cannot read file metadata: {}", e))?;
+    let metadata =
+        std::fs::metadata(path).map_err(|e| format!("Cannot read file metadata: {}", e))?;
     let size = metadata.len() as usize;
 
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("");
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     let media_type = MediaType::from_extension(ext);
 
     let limit = match media_type {
@@ -252,12 +247,14 @@ pub fn transcribe_audio(input: &Path, model: &str) -> Result<String, String> {
     if let Ok(out) = result {
         if out.status.success() {
             // whisper writes to <input_name>.txt
-            let txt_path = PathBuf::from("/tmp").join(
-                input
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("audio"),
-            ).with_extension("txt");
+            let txt_path = PathBuf::from("/tmp")
+                .join(
+                    input
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("audio"),
+                )
+                .with_extension("txt");
 
             if let Ok(text) = std::fs::read_to_string(&txt_path) {
                 debug!(input = %input.display(), "Audio transcribed with whisper");
@@ -288,9 +285,11 @@ pub fn transcribe_audio(input: &Path, model: &str) -> Result<String, String> {
         }
     }
 
-    Err("Transcription failed. Install whisper (pip install openai-whisper) \
+    Err(
+        "Transcription failed. Install whisper (pip install openai-whisper) \
          or whisper.cpp for audio transcription support."
-        .to_string())
+            .to_string(),
+    )
 }
 
 /// Extract a frame from a video at a given timestamp.
@@ -359,10 +358,7 @@ pub fn detect_mime_type(path: &Path) -> String {
     }
 
     // Fallback based on extension
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("");
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
 
     match ext.to_lowercase().as_str() {
         "jpg" | "jpeg" => "image/jpeg",
@@ -430,7 +426,9 @@ mod tests {
         // return a non-MIME error string.  Either way, detect_mime_type()
         // should fall through to the extension-based lookup which returns
         // "image/jpeg" for a .jpg path.
-        let mime = detect_mime_type(Path::new("/tmp/nonexistent_test_file_that_should_not_exist.jpg"));
+        let mime = detect_mime_type(Path::new(
+            "/tmp/nonexistent_test_file_that_should_not_exist.jpg",
+        ));
         assert_eq!(mime, "image/jpeg");
     }
 }
