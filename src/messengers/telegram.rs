@@ -165,3 +165,12 @@ impl Messenger for TelegramMessenger {
         Ok(())
     }
 }
+
+impl std::fmt::Debug for TelegramMessenger {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TelegramMessenger")
+            .field("name", &self.name)
+            .field("connected", &self.connected)
+            .finish()
+    }
+}

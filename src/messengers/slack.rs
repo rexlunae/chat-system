@@ -18,6 +18,9 @@ pub struct SlackMessenger {
     client: Client,
     last_seen_ts: Mutex<HashMap<String, String>>,
     connected: bool,
+    /// Optional allowlist of channel IDs to watch.  When non-empty only these
+    /// channels are polled; when empty all conversations are fetched dynamically.
+    watch_channels: Vec<String>,
 }
 
 impl SlackMessenger {
@@ -31,6 +34,7 @@ impl SlackMessenger {
             client: Client::new(),
             last_seen_ts: Mutex::new(HashMap::new()),
             connected: false,
+            watch_channels: Vec::new(),
         }
     }
 
@@ -49,6 +53,17 @@ impl SlackMessenger {
 
     pub fn with_api_base_url(mut self, url: impl Into<String>) -> Self {
         self.api_base_url = url.into();
+        self
+    }
+
+    /// Restrict message polling to a specific channel.
+    ///
+    /// Call this one or more times to build an explicit allowlist of channel IDs.
+    /// When at least one channel is added, only those channels are polled; when
+    /// no channels have been added (the default) all conversations are fetched
+    /// dynamically via `conversations.list`.
+    pub fn watch_channel(mut self, channel_id: impl Into<String>) -> Self {
+        self.watch_channels.push(channel_id.into());
         self
     }
 
@@ -112,6 +127,10 @@ impl SlackMessenger {
     }
 
     async fn fetch_conversation_ids(&self) -> Result<Vec<String>> {
+        if !self.watch_channels.is_empty() {
+            return Ok(self.watch_channels.clone());
+        }
+
         let data = self
             .get_json("conversations.list?types=public_channel,private_channel,im,mpim&exclude_archived=true&limit=1000")
             .await?;
@@ -187,6 +206,16 @@ impl SlackMessenger {
         }
 
         Ok(messages)
+    }
+}
+
+impl std::fmt::Debug for SlackMessenger {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SlackMessenger")
+            .field("name", &self.name)
+            .field("watch_channels", &self.watch_channels)
+            .field("connected", &self.connected)
+            .finish()
     }
 }
 
