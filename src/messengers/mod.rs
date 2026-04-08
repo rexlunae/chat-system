@@ -41,16 +41,27 @@ mod whatsapp;
 pub use whatsapp::WhatsAppMessenger;
 
 #[cfg(feature = "telegram-cli")]
-mod telegram_cli;
-#[cfg(feature = "telegram-cli")]
-pub use telegram_cli::TelegramCliMessenger;
+/// `TelegramCliMessenger` is an alias for [`TelegramMessenger`].
+///
+/// The `telegram-cli` feature is kept for backward compatibility. New code
+/// should use [`TelegramMessenger`] directly.
+pub type TelegramCliMessenger = TelegramMessenger;
 
 #[cfg(feature = "discord-cli")]
-mod discord_cli;
-#[cfg(feature = "discord-cli")]
-pub use discord_cli::DiscordCliMessenger;
+/// `DiscordCliMessenger` is an alias for [`DiscordMessenger`].
+///
+/// The `discord-cli` feature is kept for backward compatibility. New code
+/// should use [`DiscordMessenger`] directly.  Note that [`DiscordMessenger`]
+/// uses the WebSocket Gateway rather than REST polling; `watch_channel` calls
+/// are accepted but have no effect since all guild channels are received
+/// automatically.
+pub type DiscordCliMessenger = DiscordMessenger;
 
 #[cfg(feature = "slack-cli")]
-mod slack_cli;
-#[cfg(feature = "slack-cli")]
-pub use slack_cli::SlackCliMessenger;
+/// `SlackCliMessenger` is an alias for [`SlackMessenger`].
+///
+/// The `slack-cli` feature is kept for backward compatibility. New code
+/// should use [`SlackMessenger`] directly.  The `watch_channel` builder
+/// method on [`SlackMessenger`] provides the same channel-filtering
+/// behaviour that `SlackCliMessenger` offered.
+pub type SlackCliMessenger = SlackMessenger;

@@ -47,6 +47,15 @@ impl DiscordMessenger {
         self
     }
 
+    /// Add a channel to the watch list.
+    ///
+    /// This method exists for API compatibility with the former `DiscordCliMessenger`.
+    /// `DiscordMessenger` uses the WebSocket Gateway and receives events from all
+    /// channels the bot belongs to automatically, so this call is a no-op.
+    pub fn watch_channel(self, _channel_id: impl Into<String>) -> Self {
+        self
+    }
+
     fn api_url(&self, path: impl AsRef<str>) -> String {
         format!(
             "{}/{}",
@@ -304,5 +313,14 @@ impl Messenger for DiscordMessenger {
             let body = response.text().await.unwrap_or_default();
             anyhow::bail!("Discord typing failed {}: {}", status, body);
         }
+    }
+}
+
+impl std::fmt::Debug for DiscordMessenger {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DiscordMessenger")
+            .field("name", &self.name)
+            .field("connected", &self.connected)
+            .finish()
     }
 }
