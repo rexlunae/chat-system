@@ -39,5 +39,3 @@ pub use signal_cli::SignalCliMessenger;
 mod whatsapp;
 #[cfg(feature = "whatsapp")]
 pub use whatsapp::WhatsAppMessenger;
-
-
