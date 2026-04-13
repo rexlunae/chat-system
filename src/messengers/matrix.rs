@@ -563,7 +563,10 @@ mod tests {
     #[test]
     fn with_allowed_chats_sets_filter() {
         let messenger = MatrixMessenger::new("matrix", "https://matrix.example", "bot", "secret")
-            .with_allowed_chats(vec!["!room1:example.com".to_string(), "!room2:example.com".to_string()]);
+            .with_allowed_chats(vec![
+                "!room1:example.com".to_string(),
+                "!room2:example.com".to_string(),
+            ]);
         assert!(messenger.allowed_chats.contains("!room1:example.com"));
         assert!(messenger.allowed_chats.contains("!room2:example.com"));
         assert!(!messenger.allowed_chats.contains("!room3:example.com"));
