@@ -23,7 +23,7 @@ pub use webhook::WebhookMessenger;
 #[cfg(feature = "matrix")]
 mod matrix;
 #[cfg(feature = "matrix")]
-pub use matrix::{MatrixMessenger, MatrixDmConfig};
+pub use matrix::{MatrixDmConfig, MatrixMessenger};
 
 #[cfg(feature = "matrix-cli")]
 mod matrix_cli;
