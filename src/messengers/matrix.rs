@@ -7,9 +7,21 @@ use async_trait::async_trait;
 use reqwest::{Client, Url};
 use serde::Deserialize;
 use serde_json::json;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::Mutex;
+
+/// Configuration for Matrix DM (direct message) handling.
+#[derive(Debug, Clone, Default)]
+pub struct MatrixDmConfig {
+    /// Whether DMs are enabled
+    pub enabled: bool,
+    /// DM policy: "allowlist", "open", or "pairing"
+    pub policy: String,
+    /// List of user IDs allowed to send DMs (for allowlist policy)
+    pub allow_from: Vec<String>,
+}
 
 pub struct MatrixMessenger {
     name: String,
@@ -22,6 +34,14 @@ pub struct MatrixMessenger {
     sync_token: Mutex<Option<String>>,
     txn_counter: AtomicU64,
     connected: bool,
+    /// Directory for persisting state (sync token, etc.)
+    state_dir: Option<PathBuf>,
+    /// Allowed chat room IDs (if empty, all rooms are allowed)
+    allowed_chats: HashSet<String>,
+    /// DM configuration
+    dm_config: MatrixDmConfig,
+    /// Dynamically accepted DM room IDs
+    dm_rooms: Mutex<HashSet<String>>,
 }
 
 impl MatrixMessenger {
@@ -42,6 +62,10 @@ impl MatrixMessenger {
             sync_token: Mutex::new(None),
             txn_counter: AtomicU64::new(1),
             connected: false,
+            state_dir: None,
+            allowed_chats: HashSet::new(),
+            dm_config: MatrixDmConfig::default(),
+            dm_rooms: Mutex::new(HashSet::new()),
         }
     }
 
@@ -76,7 +100,35 @@ impl MatrixMessenger {
             sync_token: Mutex::new(None),
             txn_counter: AtomicU64::new(1),
             connected: false,
+            state_dir: None,
+            allowed_chats: HashSet::new(),
+            dm_config: MatrixDmConfig::default(),
+            dm_rooms: Mutex::new(HashSet::new()),
         }
+    }
+
+    /// Set state directory for persisting sync token across restarts.
+    ///
+    /// When set, the sync token is saved to `{state_dir}/sync_token` and
+    /// loaded on initialization to avoid re-processing old messages.
+    pub fn with_state_dir(mut self, dir: PathBuf) -> Self {
+        self.state_dir = Some(dir);
+        self
+    }
+
+    /// Set allowed chat room IDs.
+    ///
+    /// When set, only messages from these rooms will be processed.
+    /// If empty, all rooms the user has joined are processed.
+    pub fn with_allowed_chats(mut self, chats: Vec<String>) -> Self {
+        self.allowed_chats = chats.into_iter().collect();
+        self
+    }
+
+    /// Set DM configuration.
+    pub fn with_dm_config(mut self, config: MatrixDmConfig) -> Self {
+        self.dm_config = config;
+        self
     }
 
     fn validate_config(&self) -> Result<()> {
@@ -126,6 +178,35 @@ impl MatrixMessenger {
         let mut segments = vec!["_matrix", "client", "v3"];
         segments.extend_from_slice(path);
         self.url_for_segments(&segments)
+    }
+
+    /// Load sync token from state directory if configured.
+    fn load_sync_token(&self) -> Option<String> {
+        let state_dir = self.state_dir.as_ref()?;
+        let token_path = state_dir.join("sync_token");
+        std::fs::read_to_string(&token_path).ok()
+    }
+
+    /// Save sync token to state directory if configured.
+    fn save_sync_token(&self, token: &str) {
+        if let Some(state_dir) = &self.state_dir {
+            if let Err(e) = std::fs::create_dir_all(state_dir) {
+                tracing::warn!("Failed to create state dir: {e}");
+                return;
+            }
+            let token_path = state_dir.join("sync_token");
+            if let Err(e) = std::fs::write(&token_path, token) {
+                tracing::warn!("Failed to save sync token: {e}");
+            }
+        }
+    }
+
+    /// Check if a room should be processed based on allowed_chats filter.
+    fn is_room_allowed(&self, room_id: &str) -> bool {
+        if self.allowed_chats.is_empty() {
+            return true;
+        }
+        self.allowed_chats.contains(room_id)
     }
 
     async fn sync_once(&self) -> Result<Vec<Message>> {
@@ -212,14 +293,25 @@ impl MatrixMessenger {
             .json()
             .await
             .context("Invalid Matrix sync response")?;
+
+        // Save sync token for persistence
+        self.save_sync_token(&sync.next_batch);
         *self.sync_token.lock().await = Some(sync.next_batch);
 
         let mut messages = Vec::new();
         for (room_id, joined_room) in sync.rooms.join {
+            // Filter by allowed chats
+            if !self.is_room_allowed(&room_id) {
+                continue;
+            }
+
             for event in joined_room.timeline.events {
                 if event.event_type != "m.room.message" || event.content.body.is_empty() {
                     continue;
                 }
+
+                // Check if this is a DM room
+                let is_dm = self.dm_rooms.lock().await.contains(&room_id);
 
                 messages.push(Message {
                     id: event.event_id,
@@ -234,7 +326,7 @@ impl MatrixMessenger {
                         .map(|r| r.event_id),
                     thread_id: None,
                     media: None,
-                    is_direct: false,
+                    is_direct: is_dm,
                     message_type: MessageType::Text,
                     edited_timestamp: None,
                     reactions: None,
@@ -288,10 +380,14 @@ impl Messenger for MatrixMessenger {
     }
 
     async fn initialize(&mut self) -> Result<()> {
+        // Load persisted sync token if available
+        if let Some(token) = self.load_sync_token() {
+            *self.sync_token.lock().await = Some(token);
+        }
+
         // If we already have an access token (from with_access_token), skip login
         if self.access_token.is_some() {
             // Validate token by doing an initial sync
-            *self.sync_token.lock().await = None;
             let _ = self.sync_once().await?;
             self.connected = true;
             return Ok(());
@@ -334,7 +430,6 @@ impl Messenger for MatrixMessenger {
         self.access_token = Some(login.access_token);
         self.user_id = Some(login.user_id);
 
-        *self.sync_token.lock().await = None;
         let _ = self.sync_once().await?;
 
         self.connected = true;
@@ -456,5 +551,35 @@ mod tests {
     fn validate_config_accepts_non_empty_values() {
         let messenger = MatrixMessenger::new("matrix", "https://matrix.example", "bot", "secret");
         assert!(messenger.validate_config().is_ok());
+    }
+
+    #[test]
+    fn with_state_dir_sets_path() {
+        let messenger = MatrixMessenger::new("matrix", "https://matrix.example", "bot", "secret")
+            .with_state_dir(PathBuf::from("/tmp/matrix"));
+        assert_eq!(messenger.state_dir, Some(PathBuf::from("/tmp/matrix")));
+    }
+
+    #[test]
+    fn with_allowed_chats_sets_filter() {
+        let messenger = MatrixMessenger::new("matrix", "https://matrix.example", "bot", "secret")
+            .with_allowed_chats(vec!["!room1:example.com".to_string(), "!room2:example.com".to_string()]);
+        assert!(messenger.allowed_chats.contains("!room1:example.com"));
+        assert!(messenger.allowed_chats.contains("!room2:example.com"));
+        assert!(!messenger.allowed_chats.contains("!room3:example.com"));
+    }
+
+    #[test]
+    fn is_room_allowed_when_empty() {
+        let messenger = MatrixMessenger::new("matrix", "https://matrix.example", "bot", "secret");
+        assert!(messenger.is_room_allowed("!anyroom:example.com"));
+    }
+
+    #[test]
+    fn is_room_allowed_with_filter() {
+        let messenger = MatrixMessenger::new("matrix", "https://matrix.example", "bot", "secret")
+            .with_allowed_chats(vec!["!room1:example.com".to_string()]);
+        assert!(messenger.is_room_allowed("!room1:example.com"));
+        assert!(!messenger.is_room_allowed("!room2:example.com"));
     }
 }
