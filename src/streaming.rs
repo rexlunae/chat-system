@@ -26,7 +26,6 @@ pub enum StreamStrategy {
     BufferAll,
 }
 
-
 /// Configuration for messenger streaming.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamConfig {

@@ -39,7 +39,6 @@ pub enum IsolationMode {
     PerUser,
 }
 
-
 /// Group chat configuration for a messenger.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupChatConfig {
