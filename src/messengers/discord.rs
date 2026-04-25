@@ -171,38 +171,39 @@ impl DiscordMessenger {
                         }
 
                         match payload["op"].as_i64() {
-                            Some(0) => {
-                                if payload["t"].as_str() == Some("MESSAGE_CREATE") {
-                                    let data = &payload["d"];
-                                    let timestamp = data["timestamp"]
+                            Some(0)
+                                if payload["t"].as_str() == Some("MESSAGE_CREATE") =>
+                            {
+                                let data = &payload["d"];
+                                let timestamp = data["timestamp"]
+                                    .as_str()
+                                    .and_then(|ts| DateTime::parse_from_rfc3339(ts).ok())
+                                    .map(|ts| ts.timestamp())
+                                    .unwrap_or_else(|| chrono::Utc::now().timestamp());
+
+                                let message = Message {
+                                    id: data["id"].as_str().unwrap_or("").to_string(),
+                                    sender: data["author"]["username"]
                                         .as_str()
-                                        .and_then(|ts| DateTime::parse_from_rfc3339(ts).ok())
-                                        .map(|ts| ts.timestamp())
-                                        .unwrap_or_else(|| chrono::Utc::now().timestamp());
+                                        .unwrap_or("unknown")
+                                        .to_string(),
+                                    content: data["content"].as_str().unwrap_or("").to_string(),
+                                    timestamp,
+                                    channel: data["channel_id"].as_str().map(|s| s.to_string()),
+                                    reply_to: data["message_reference"]["message_id"]
+                                        .as_str()
+                                        .map(|s| s.to_string()),
+                                    thread_id: None,
+                                    media: None,
+                                    is_direct: data.get("guild_id").is_none()
+                                        || data["guild_id"].is_null(),
+                                    message_type: MessageType::Text,
+                                    edited_timestamp: None,
+                                    reactions: None,
+                                };
 
-                                    let message = Message {
-                                        id: data["id"].as_str().unwrap_or("").to_string(),
-                                        sender: data["author"]["username"]
-                                            .as_str()
-                                            .unwrap_or("unknown")
-                                            .to_string(),
-                                        content: data["content"].as_str().unwrap_or("").to_string(),
-                                        timestamp,
-                                        channel: data["channel_id"].as_str().map(|s| s.to_string()),
-                                        reply_to: data["message_reference"]["message_id"]
-                                            .as_str()
-                                            .map(|s| s.to_string()),
-                                        thread_id: None,
-                                        media: None,
-                                        is_direct: data.get("guild_id").is_none() || data["guild_id"].is_null(),
-                                        message_type: MessageType::Text,
-                                        edited_timestamp: None,
-                                        reactions: None,
-                                    };
-
-                                    let mut queue = message_queue.lock().await;
-                                    queue.push(message);
-                                }
+                                let mut queue = message_queue.lock().await;
+                                queue.push(message);
                             }
                             Some(1) => {
                                 let payload = json!({ "op": 1, "d": sequence.clone().unwrap_or(Value::Null) });
