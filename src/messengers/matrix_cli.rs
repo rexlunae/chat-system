@@ -15,8 +15,8 @@ use reqwest::Client;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 
 /// Matrix API response for login
@@ -90,6 +90,8 @@ pub struct MatrixCliMessenger {
     state_dir: Option<std::path::PathBuf>,
     /// Messages from initial sync, waiting to be returned
     pending_messages: Arc<Mutex<Vec<Message>>>,
+    /// Counter for unique transaction IDs
+    txn_counter: Arc<AtomicU64>,
 }
 
 impl MatrixCliMessenger {
@@ -115,6 +117,7 @@ impl MatrixCliMessenger {
             dm_rooms: Arc::new(Mutex::new(HashSet::new())),
             state_dir: None,
             pending_messages: Arc::new(Mutex::new(Vec::new())),
+            txn_counter: Arc::new(AtomicU64::new(1)),
         }
     }
 
@@ -141,6 +144,7 @@ impl MatrixCliMessenger {
             dm_rooms: Arc::new(Mutex::new(HashSet::new())),
             state_dir: None,
             pending_messages: Arc::new(Mutex::new(Vec::new())),
+            txn_counter: Arc::new(AtomicU64::new(1)),
         }
     }
 
@@ -557,10 +561,7 @@ impl MatrixCliMessenger {
     ) -> Result<String> {
         let resolved_room_id = self.resolve_room_id(room_id).await?;
 
-        let txn_id = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
+        let txn_id = self.txn_counter.fetch_add(1, Ordering::Relaxed).to_string();
 
         // Convert markdown to HTML for formatted display
         let parser = Parser::new(content);
