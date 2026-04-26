@@ -39,3 +39,18 @@ pub use signal_cli::SignalCliMessenger;
 mod whatsapp;
 #[cfg(feature = "whatsapp")]
 pub use whatsapp::WhatsAppMessenger;
+
+#[cfg(feature = "telegram-cli")]
+mod telegram_cli;
+#[cfg(feature = "telegram-cli")]
+pub use telegram_cli::TelegramCliMessenger;
+
+#[cfg(feature = "discord-cli")]
+mod discord_cli;
+#[cfg(feature = "discord-cli")]
+pub use discord_cli::DiscordCliMessenger;
+
+#[cfg(feature = "slack-cli")]
+mod slack_cli;
+#[cfg(feature = "slack-cli")]
+pub use slack_cli::SlackCliMessenger;

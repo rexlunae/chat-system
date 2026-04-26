@@ -16,7 +16,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::Mutex;
 
 /// Matrix API response for login
@@ -90,6 +90,8 @@ pub struct MatrixCliMessenger {
     state_dir: Option<std::path::PathBuf>,
     /// Messages from initial sync, waiting to be returned
     pending_messages: Arc<Mutex<Vec<Message>>>,
+    /// Counter for unique transaction IDs
+    txn_counter: Arc<AtomicU64>,
 }
 
 impl MatrixCliMessenger {
@@ -115,6 +117,7 @@ impl MatrixCliMessenger {
             dm_rooms: Arc::new(Mutex::new(HashSet::new())),
             state_dir: None,
             pending_messages: Arc::new(Mutex::new(Vec::new())),
+            txn_counter: Arc::new(AtomicU64::new(1)),
         }
     }
 
@@ -141,6 +144,7 @@ impl MatrixCliMessenger {
             dm_rooms: Arc::new(Mutex::new(HashSet::new())),
             state_dir: None,
             pending_messages: Arc::new(Mutex::new(Vec::new())),
+            txn_counter: Arc::new(AtomicU64::new(1)),
         }
     }
 
@@ -557,10 +561,7 @@ impl MatrixCliMessenger {
     ) -> Result<String> {
         let resolved_room_id = self.resolve_room_id(room_id).await?;
 
-        let txn_id = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
+        let txn_id = self.txn_counter.fetch_add(1, Ordering::Relaxed).to_string();
 
         // Convert markdown to HTML for formatted display
         let parser = Parser::new(content);
@@ -649,18 +650,13 @@ impl Messenger for MatrixCliMessenger {
             }
         }
 
-        // Load persisted sync token if available.
-        // This ensures we only process NEW messages after restart, not re-process old ones.
-        // The sync token represents our last known position in the event stream.
-        if let Some(saved_token) = self.load_sync_token() {
-            eprintln!("Loaded persisted sync token: {}", saved_token);
-            let mut token = self.sync_token.lock().await;
-            *token = Some(saved_token);
-        }
+        // Do not load the persisted sync token on connect. Starting fresh ensures we
+        // see recent messages (~10 per room) that may have arrived while offline.
+        // Without this, incremental sync returns empty when no activity happened AFTER
+        // the old token, causing missed messages. The sync token is only used during
+        // continuous operation to deduplicate events between polling cycles.
 
-        // Do initial sync to catch up on any messages since last run.
-        // If we have a persisted token, this returns only NEW messages.
-        // If no token (fresh start), this returns recent messages (~10 per room).
+        // Do initial sync to get recent messages (~10 per room).
         let initial_messages = self.sync(Some(0)).await?;
         if !initial_messages.is_empty() {
             eprintln!(
