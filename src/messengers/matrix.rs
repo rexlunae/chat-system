@@ -387,8 +387,16 @@ impl Messenger for MatrixMessenger {
 
         // If we already have an access token (from with_access_token), skip login
         if self.access_token.is_some() {
-            // Validate token by doing an initial sync
-            let _ = self.sync_once().await?;
+            // Validate token via whoami (lightweight, no message consumption)
+            let whoami_url = self.client_api_url(&["account", "whoami"])?;
+            let resp = self.client.get(whoami_url)
+                .bearer_auth(self.access_token()?)
+                .send()
+                .await
+                .context("Matrix whoami validation failed")?;
+            if !resp.status().is_success() {
+                anyhow::bail!("Invalid access token (HTTP {})", resp.status());
+            }
             self.connected = true;
             return Ok(());
         }
@@ -430,7 +438,16 @@ impl Messenger for MatrixMessenger {
         self.access_token = Some(login.access_token);
         self.user_id = Some(login.user_id);
 
-        let _ = self.sync_once().await?;
+        // Validate via whoami (no message consumption)
+        let whoami_url = self.client_api_url(&["account", "whoami"])?;
+        let resp = self.client.get(whoami_url)
+            .bearer_auth(self.access_token()?)
+            .send()
+            .await
+            .context("Matrix whoami validation failed")?;
+        if !resp.status().is_success() {
+            anyhow::bail!("Login produced invalid token (HTTP {})", resp.status());
+        }
 
         self.connected = true;
         Ok(())
